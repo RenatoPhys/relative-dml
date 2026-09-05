@@ -26,7 +26,7 @@ Python >= 3.9; dependências do pacote: NumPy, SciPy e scikit-learn. pandas e ma
 | `DiscreteQLearner` | Dois ou mais braços | Identidade Q por duas classificações de braço; sem garantia DR |
 | `DiscreteDML` | Dois ou mais braços | Médias AIPW de cada braço, aprendidas por regressão; razão das médias estimadas |
 | `ContinuousQLearner` | Dose numérica | Classificação de conversores versus população completa; contraste flexível, sem garantia DR |
-| `ContinuousDML` | Dose numérica | Momento multiplicativo sob log-resposta relativa linear na dose e nos modificadores escolhidos |
+| `ContinuousDML` | Dose numérica | Momento multiplicativo com inclinação linear nos modificadores escolhidos e curvatura quadrática comum opcional |
 
 Para começar no caso contínuo, use `ContinuousDML` se uma inclinação relativa constante na janela de dose for plausível. Compare com `ContinuousQLearner` e uma regressão de outcome. A classificação Q contínua é próxima de um S-learner e **não** pressupõe superioridade sobre ele. Curvatura omitida pode enviesar o DML mesmo com nuisances corretas.
 
@@ -56,9 +56,37 @@ O modelo é `mu(t,x) = b(x) * exp((t-reference_dose) * [1,V(x)] @ coef_)`. O int
 
 `predict_slope` é a derivada de **log-risco**, por unidade de `t`. É elasticidade em relação ao preço somente quando `t` é log-preço ou log-variação de preço. Padronizações adicionais mudam a unidade.
 
-As nuisances são treinadas em três folds por padrão, usando histogram gradient boosting. É possível passar `outcome_model` (classificador com `predict_proba`) e `treatment_model` (regressor com `predict`), compatíveis com `sklearn.base.clone`. `baseline_oof_`, `treatment_mean_oof_`, `fold_ids_` e `estimate_` permitem inspecionar o ajuste. `se_` fornece o sandwich i.i.d. do manuscrito, sob a interseção e taxas DML; não há intervalos automaticamente válidos sob misspecificação persistente de nuisance.
+As nuisances são treinadas em três folds por padrão, usando histogram gradient boosting. É possível passar `outcome_model` (classificador com `predict_proba`) e `treatment_model` (regressor com `predict`), compatíveis com `sklearn.base.clone`. `baseline_oof_`, `treatment_mean_oof_`, `basis_mean_oof_`, `fold_ids_` e `estimate_` permitem inspecionar o ajuste. `cov_` fornece a covariância sandwich estimada dos coeficientes, **já dividida por n**; `se_**2` é sua diagonal. `estimate_.jac_singular_values` complementa `jac_condition` e `moment_norm`: o menor valor singular informa a escala do Jacobiano, sem um limiar universal de identificação forte, pois unidades e base importam.
 
-O wrapper implementa apenas a base linear na dose. A discussão teórica de splines e intervenções estocásticas no paper não significa que essas extensões estejam implementadas na API.
+Para permitir uma curvatura comum, use `dose_degree=2` (somente 1 e 2 são aceitos; o padrão 1 preserva a API linear):
+
+```python
+quadratic = ContinuousDML(reference_dose=0, dose_degree=2, random_state=42)
+quadratic.fit(X, t, y, effect_features=V)
+ratio = quadratic.predict_ratio(X_new, 0.5, 0, X_new[:, :1])
+slope_at_reference = quadratic.predict_slope(X_new, X_new[:, :1])
+slope_at_half = quadratic.predict_slope(X_new, X_new[:, :1], dose=0.5)
+```
+
+Com `d=t-reference_dose`, a curva é `g(t,x)=d*[1,V(x)]@theta + kappa*d**2`. A ordem de `coef_` é **inclinação comum, coeficientes das colunas de V, kappa**; no linear não há `kappa`. A curvatura não interage com os perfis. Cada fold clona também o regressor de tratamento para estimar `E[(T-reference_dose)**2 | X]`; `treatment_second_moment_oof_` guarda essas previsões. Esse momento inclui a variância condicional e não é o quadrado da média. `basis_mean_oof_` contém a média prevista de toda a base, na mesma ordem dos coeficientes.
+
+Os ratios usam `exp(g(t,x)-g(t0,x))`, inclusive quando nenhuma das doses é a referência de treino. A derivada é `[1,V(x)]@theta + 2*kappa*(t-reference_dose)`. O argumento opcional `dose` de `predict_slope` aceita escalar ou vetor e, quando omitido, usa a referência de treino. Duas doses não identificam essa curva quadrática; o ajuste falha explicitamente. Bases e Jacobianos numericamente deficientes também são rejeitados.
+
+Exemplo de contraste **pré-especificado**, para um perfil com `V=0.25` e doses 0.5 versus zero, ambas dentro do intervalo observado:
+
+```python
+import numpy as np
+from scipy.stats import norm
+
+dt = 0.5 - 0.0
+d2 = (0.5 - quadratic.reference_dose)**2 - (0.0 - quadratic.reference_dose)**2
+a = np.array([dt, dt * 0.25, d2])  # mesma ordem de coef_
+log_ratio = a @ quadratic.coef_
+contrast_se = np.sqrt(a @ quadratic.cov_ @ a)  # inclui covariâncias cruzadas
+ratio_ci = np.exp(log_ratio + norm.ppf([0.025, 0.975]) * contrast_se)
+```
+
+Esse cálculo exige dados i.i.d., especificação correta da curva relativa, identificação e as condições de convergência das nuisances do manuscrito (interseção e taxas DML). Não representa inferência válida sob qualquer misspecificação, seleção de contrastes após observar os dados ou agrupamento por cliente. Curvatura quadrática é uma restrição um pouco menos forte, não proteção geral contra forma relativa incorreta. Splines e o aprendiz de intervenções estocásticas discutidos no paper continuam fora da API.
 
 ## Tratamento discreto
 
@@ -95,6 +123,8 @@ lift = q.predict_lift(X_new, treatment=0.5, reference=0)
 
 Treinamos um classificador de origem: classe 1 recebe `(X,T)` dos conversores; classe 0 recebe `(X,T)` da população completa. As duas origens têm o mesmo peso total. Pela identidade de Bayes, as odds da classificação são `mu(t,x)/P(Y=1)`, e a razão das odds em duas doses recupera o risk ratio. A referência conjunta preserva a alocação observada e o contraste mantém `X` fixo.
 
+No Q condicional, o baseline cancela na identidade de `q(t|x)/f(t|x)`. Neste classificador de origens **conjuntas**, o baseline permanece na função aprendida `mu(t,x)/P(Y=1)` e cancela no contraste final. São procedimentos de estimação distintos.
+
 Conversores aparecem nas duas origens: essa duplicação não aumenta o número de observações independentes. Se fizer tuning, divida os **registros originais antes da duplicação**. O classificador customizado precisa aceitar `sample_weight`; o pacote clona o estimador antes de treinar. A identidade é não paramétrica, mas o desempenho depende da classe e regularização do classificador. Essa implementação não é o estimador de inclinação exponencial com densidade conhecida usado no primeiro Monte Carlo do paper.
 
 ## Pressupostos e limites
@@ -118,6 +148,24 @@ São dez cenários com verdade conhecida, incluindo efeito nulo, comum, heterog�
 A avaliação principal usa semente-base 20270906. O piloto anterior está em `continuous_q_paper/results/pilot` e pode ser reproduzido com `--seed 20260906 --pilot-final --out continuous_q_paper/results/pilot`. As duas rodadas usam os mesmos dez desenhos, com 30 replicações cada; somente o estágio final do DML discreto foi alterado após o piloto.
 
 Os experimentos originais continuam em `continuous_q_paper/experiments.py`; a função `fit_multiplicative_dml` agora está no pacote e permanece importada naquele módulo. A API de baixo nível aceita nuisances externas fora da amostra ou pré-fixadas. Resultados antigos não foram substituídos pelo benchmark novo.
+
+### Comparação adicional de forma relativa
+
+O script `continuous_q_paper/targeted_benchmarks.py` compara DML linear e quadrático, regressões estruturadas de log-média lineares e quadráticas e o S-learner histórico. Os quatro desenhos mantêm os parâmetros sintéticos e usam `(curvature, confounding)` iguais a `(0,1)`, `(0.8,0)`, `(0.8,1)` e `(0.8,4)`. Os três curvos compartilham a superfície causal; muda apenas a alocação. Métodos recebem as mesmas amostras por replicação, com teste independente e contrastes `{-0.8,-0.4,0.4,0.8}` contra zero. Sementes e configurações são fixadas, sem busca de hiperparâmetros.
+
+```powershell
+$env:OMP_NUM_THREADS="1"
+python continuous_q_paper/targeted_benchmarks.py --reps 2 --n 3000 --test-n 1000 --seed 731905 --out continuous_q_paper/results/targeted_smoke
+python continuous_q_paper/targeted_benchmarks.py --reps 30 --n 12000 --test-n 2000 --seed 831905 --out continuous_q_paper/results/targeted_v1
+```
+
+O script exige diretório novo ou vazio: para reproduzir uma rodada já salva, forneça outro `--out`. `targeted_raw.csv` conserva todas as replicações, falhas, avisos, conversores, coeficientes, SEs e diagnósticos; `targeted_metadata.json` registra configurações, versões, commit e hashes dos fontes. As tabelas apresentam médias e erros Monte Carlo; `targeted_paired.csv` guarda diferenças pareadas com suas contagens efetivas e `targeted_heterogeneity.csv` separa os coeficientes dos desenhos curvos. Spearman é calculado em `t=0.8`, preservando empates exatos entre perfis, e fica `NaN` quando o efeito verdadeiro é constante.
+
+O comparador usa [PoissonRegressor](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.PoissonRegressor.html), com `alpha=0`, `tol=1e-9`, `max_iter=2000` e link log. Sua base contém intercepto, `X1`, `X2`, `t`, `t*X1` e, no quadrático, `t**2`. A perda Poisson é apenas um critério de ajuste da média de um outcome binário. Previsões fora de `[0,1]` são registradas no treino e no grid e **não são cortadas nem tratadas como probabilidades válidas**. A regressão também impõe um baseline log-linear, correto nesta família sintética; portanto, a comparação não isola perfeitamente a ortogonalização. O Q permanece no benchmark histórico.
+
+As rodadas exigidas foram executadas: 40 ajustes no smoke e 600 na referência, sem falhas ou avisos, e nenhuma previsão de conversão inválida dos comparadores de log-média nessas amostras. Na referência, o RMSE do DML linear/quadrático foi 0,0808/0,1067 no desenho linear e 0,3782/0,0794, 0,3918/0,0754 e 0,5037/0,1478 nos três curvos. A log-média quadrática teve erros médios menores que o DML quadrático nos três curvos. Acrescentar curvatura tem custo quando ela é desnecessária, e pouco overlap prejudica também o quadrático.
+
+Nos desenhos curvos, a heterogeneidade estimada pelo DML linear mudou de −0,2029 para −0,0415 e +0,3088 com a alocação, apesar da mesma superfície causal. Esses coeficientes sob curvatura omitida não são automaticamente o efeito estrutural. Consulte a [tabela completa com erros Monte Carlo](continuous_q_paper/results/targeted_v1/targeted_tables.md) e o [registro de validação](continuous_q_paper/VALIDATION.md), que documenta a correção de empates no Spearman, as saídas anteriores preservadas e uma interrupção de gravação no smoke. Não há avaliação de cobertura estrutural sob forma incorreta.
 
 ## CATE e lift: exemplos por quintil
 

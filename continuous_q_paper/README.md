@@ -16,6 +16,7 @@ Manuscrito metodológico em português, preparado em 5 de setembro de 2026.
 - `figures/`: figuras vetoriais incluídas no artigo.
 - `package_benchmarks.tex`: seção sobre o pacote e os dez cenários adicionais.
 - `scenario_experiments.py`: benchmark do pacote com treino/teste independentes e nuisances aprendidas.
+- `targeted_benchmarks.py`: comparação adicional de DML linear/quadrático, regressões estruturadas de log-média e S-learner, sem alterar o protocolo histórico.
 - `make_scenario_figures.py`: geração das novas tabelas e figura diretamente dos CSVs.
 - `results/scenario_*.csv`, `results/scenario_metadata.json`: avaliação principal, com 30 replicações por cenário e três métodos.
 - `results/pilot/`: rodada inicial preservada; motivou regularização do estágio final do DML discreto.
@@ -34,11 +35,25 @@ python continuous_q_paper/scenario_experiments.py --reps 30 --n 12000 --test-n 2
 python continuous_q_paper/make_scenario_figures.py
 ```
 
-No diretório `continuous_q_paper`, compile `paper.tex` como antes. `package_benchmarks.tex` e as tabelas geradas são incluídos automaticamente. A API contínua usa a base linear na dose do manuscrito; a API discreta aceita múltiplos braços. Não foi implementado o aprendiz não paramétrico de políticas estocásticas.
+No diretório `continuous_q_paper`, compile `paper.tex` como antes. `package_benchmarks.tex` e as tabelas geradas são incluídos automaticamente. A API contínua preserva a base linear por padrão e aceita uma curvatura comum com `dose_degree=2`; a API discreta aceita múltiplos braços. Não foi implementado o aprendiz não paramétrico de políticas estocásticas.
 
 Os ambientes das duas etapas diferem: as versões abaixo documentam os experimentos originais. O benchmark novo foi executado com Python 3.9.13, NumPy 1.26.4, SciPy 1.11.4, scikit-learn 1.5.1, pandas 2.2.2 e matplotlib 3.9.4, em ambiente virtual local. Os metadados registram as versões efetivas. O PDF atualizado foi compilado com Tectonic 0.17.0, mantendo a fonte LaTeX.
 
-## Ambiente utilizado
+## Benchmark adicional de forma relativa
+
+`targeted_benchmarks.py` compara DML linear/quadrático, log-média linear/quadrática e S-learner. Mantém a família sintética histórica nos quatro desenhos `(curvature, confounding) = (0,1), (0.8,0), (0.8,1), (0.8,4)`, sem alterar os experimentos ou CSVs anteriores. Os três curvos compartilham a mesma superfície causal. O comparador de log-média usa a perda de `PoissonRegressor` para a média do outcome binário, com intercepto, X1, X2, t, t*X1 e t² opcional, `alpha=0`, tolerância `1e-9` e até 2000 iterações. Seu baseline log-linear também está correto nesta família; a comparação não isola a ortogonalização. Previsões fora de `[0,1]` são contadas sem clipping e não são probabilidades válidas.
+
+```powershell
+$env:OMP_NUM_THREADS="1"
+python continuous_q_paper/targeted_benchmarks.py --reps 2 --n 3000 --test-n 1000 --seed 731905 --out continuous_q_paper/results/targeted_smoke
+python continuous_q_paper/targeted_benchmarks.py --reps 30 --n 12000 --test-n 2000 --seed 831905 --out continuous_q_paper/results/targeted_v1
+```
+
+Execute da raiz do projeto; use outro `--out` para reproduzir, pois saídas existentes não são sobrescritas. As duas rodadas terminaram com 40 e 600 ajustes, respectivamente: zero falhas, avisos e frações inválidas. Na referência, acrescentar curvatura piorou o RMSE do DML no desenho linear (0,0808 para 0,1067), mas reduziu o erro nos três curvos (0,3782/0,3918/0,5037 para 0,0794/0,0754/0,1478). O comparador de log-média quadrático teve médias menores nesses três casos; não se conclui superioridade geral de DML.
+
+As [tabelas completas](results/targeted_v1/targeted_tables.md) incluem médias, erros Monte Carlo, falhas e heterogeneidade separada. `targeted_paired.csv` contém diferenças pareadas e contagens efetivas; metadados contêm versões, configurações, commit e hashes. O [registro de validação](VALIDATION.md) descreve a correção do Spearman e saídas anteriores preservadas. O PDF foi recompilado com Tectonic 0.17.0 e conferido visualmente, incluindo a nova tabela e referências.
+
+## Versões do Monte Carlo original
 
 Python 3.13.5; NumPy 2.3.5; SciPy 1.17.0; pandas 2.2.3; scikit-learn 1.8.0; matplotlib 3.10.8.
 O arquivo `requirements.txt` fixa as versões das bibliotecas usadas. Pequenas diferenças numéricas entre plataformas são possíveis.
@@ -76,10 +91,14 @@ estimate = fit_multiplicative_dml(
     b_hat=b_hat_oof,    # predições fora da amostra de P(Y(0)=1 | X)
     m_t_hat=m_hat_oof,  # predições fora da amostra de E[T | X]
 )
-print(estimate.theta, estimate.se)
+print(estimate.theta, estimate.se, estimate.cov, estimate.jac_singular_values)
 ```
 
-O modelo implementado é `mu(t,x)=b(x)*exp(t*v(x)'theta)`. No manuscrito, `T` representa o tratamento e `t` seu valor. O código **não** implementa uma superfície dose–resposta completamente irrestrita. `b_hat` e `m_t_hat` devem ser predições cross-fitted ou funções pré-fixadas; não há como a função detectar treinamento incorreto por parte de quem a chama. Para clientes com múltiplas simulações, é necessário adaptar os folds e a inferência ao agrupamento; o código sintético usa observações i.i.d.
+Esse wrapper de baixo nível preserva `mu(t,x)=b(x)*exp(t*v(x)'theta)`. `ContinuousDML(dose_degree=2)` acrescenta `kappa*(t-reference_dose)**2` à função log-relativa e estima fora de cada fold também a esperança do quadrado centrado. `coef_` ordena inclinação comum, modificadores e, somente no quadrático, `kappa`. `predict_slope(..., dose=...)` avalia a derivada do log-risco na dose indicada (a referência de treino, se omitida). Veja o README principal para exemplos de predição e contraste com `cov_`.
+
+`Estimate.cov` e `ContinuousDML.cov_` são covariâncias estimadas dos coeficientes, já com `1/n`, e sua diagonal corresponde aos erros-padrão ao quadrado. Os valores singulares do Jacobiano permitem examinar sua escala junto ao número de condição, sem limiar absoluto universal de identificação. Construtores antigos de `Estimate` continuam aceitos; campos novos podem ser `None` nesses consumidores.
+
+No manuscrito, `T` representa o tratamento e `t` seu valor. O código **não** implementa uma superfície dose–resposta completamente irrestrita. `b_hat` e `m_t_hat` devem ser predições cross-fitted ou funções pré-fixadas; não há como a função detectar treinamento incorreto por parte de quem a chama. A covariância exige especificação relativa correta e condições i.i.d./taxas das nuisances; dupla robustez de nuisance não corrige uma curva errada. Para clientes com múltiplas simulações, é necessário adaptar os folds e a inferência ao agrupamento; isso continua fora do escopo.
 
 O estimador rejeita incompatibilidades dimensionais, valores não finitos, raízes numericamente inadequadas e identificação muito mal condicionada. Isso não substitui diagnósticos de confundimento, suporte, forma funcional ou validade probabilística. Não é uma solução pronta para produção ou decisão de crédito.
 

@@ -14,7 +14,16 @@ O resto exato é
 \]
 Cada sinal é regressado em $X$; só então formamos a razão das duas médias estimadas. A consistência da razão depende também da consistência das regressões finais e da positividade do denominador. Não dividimos sinais individuais nem cortamos seus valores negativos. Essa opção implementa a alternativa simples discutida após \eqref{eq:relloss}, sem atribuir dupla robustez exata à correção de Taylor do Apêndice~\ref{app:ratio}.
 
-\texttt{ContinuousDML} encapsula o momento já utilizado em \texttt{experiments.py}, com três folds estratificados pelo outcome. A nuisance de baseline é uma classificação de $Y$ em $(X,T)$ avaliada na dose de referência; a média da dose é uma regressão de $T$ em $X$. A base implementada é $(t-t_{\rm ref})[1,V(x)]$, com modificadores $V$ pré-especificados e derivados de $X$. Sem modificadores, há apenas uma inclinação comum. A API não implementa as bases de splines nem o aprendiz de políticas estocásticas discutidos na teoria. Os erros-padrão dos coeficientes mantêm as condições de inferência da Seção~\ref{sec:dml}.
+\texttt{ContinuousDML} encapsula o momento já utilizado em \texttt{experiments.py}, com três folds estratificados pelo outcome. A nuisance de baseline é uma classificação de $Y$ em $(X,T)$ avaliada na dose de referência; a média da dose é uma regressão de $T$ em $X$. O padrão \texttt{dose\_degree=1} preserva a base $(t-t_{\rm ref})[1,V(x)]$, com modificadores $V$ pré-especificados e derivados de $X$. Com \texttt{dose\_degree=2}, acrescenta-se somente uma curvatura comum:
+\[
+g(t,x)=(t-t_{\rm ref})[1,V(x)]^{\mathsf T}\theta
+       +\kappa(t-t_{\rm ref})^2.
+\]
+\texttt{coef\_} contém a inclinação comum, os coeficientes de $V$ na ordem fornecida e, por último, $\kappa$ no caso quadrático. Cada fold treina um clone adicional do regressor de tratamento com alvo $(T-t_{\rm ref})^2$, estimando sua esperança condicional, não o quadrado de $\widehat{\E[T\mid X]}-t_{\rm ref}$. Atributos \texttt{baseline\_oof\_}, \texttt{treatment\_mean\_oof\_}, \texttt{treatment\_second\_moment\_oof\_} (quadrático) e \texttt{basis\_mean\_oof\_} permitem inspecionar as previsões externas. Um único solver resolve o momento da Seção~\ref{sec:dml} para ambas as bases, preservando o wrapper linear de baixo nível.
+
+Todas as razões são $\exp\{g(t,x)-g(t_0,x)\}$; o termo quadrático usa $(t-t_{\rm ref})^2-(t_0-t_{\rm ref})^2$. \texttt{predict\_slope} mantém o argumento de modificadores e aceita \texttt{dose} opcional, avaliada por padrão em $t_{\rm ref}$: a derivada do log-risco é $[1,V(x)]^{\mathsf T}\theta+2\kappa(t-t_{\rm ref})$. A API rejeita doses fora do intervalo global observado e, para grau dois, desenhos com menos de três doses; isso não verifica suporte condicional. Sem modificadores, a inclinação na referência e a curvatura são comuns. Essa extensão continua paramétrica; splines e o aprendiz de políticas estocásticas não estão implementados.
+
+\texttt{cov\_} expõe $\widehat J^{-1}\widehat\Omega\widehat J^{-\mathsf T}/n$, a covariância estimada dos coeficientes, cuja diagonal é \texttt{se\_}\,$^2$. Um contraste pré-especificado $a^{\mathsf T}\hat\beta$ usa variância $a^{\mathsf T}\widehat{\Cov}(\hat\beta)a$, sem outra divisão por $n$. \texttt{Estimate} preserva os campos anteriores e acrescenta \texttt{cov} e \texttt{jac\_singular\_values}, serializáveis; consumidores legados podem deixar esses novos campos ausentes (\texttt{None}). Valores singulares complementam o número de condição sem impor limiar universal de identificação forte: sua escala depende das unidades e da base. Mantêm-se as hipóteses i.i.d., especificação correta e condições de inferência da Seção~\ref{sec:dml}; expor a covariância não torna a inferência válida sob misspecificação arbitrária nem implementa particionamento ou inferência por cliente.
 
 \subsection{Q contínuo por classificação de origens conjuntas}
 \texttt{ContinuousQLearner} implementa uma variante simples da classificação de razões de densidade. Construímos uma origem $S=1$ com $(X,T)$ dos conversores e uma origem $S=0$ com $(X,T)$ da população completa. As origens recebem o mesmo peso total. Se $D(x,t)=\Pp(S=1\mid X=x,T=t)$ nessa mistura, então
@@ -24,6 +33,8 @@ Cada sinal é regressado em $X$; só então formamos a razão das duas médias e
 =\frac{\mu(t,x)}{\Pp(Y=1)}.
 \]
 Portanto, $\logit D(x,t)-\logit D(x,t_0)=\log R(t,t_0;x)$. A referência conjunta mantém a distribuição de alocação observada; a comparação de doses mantém $X$ fixo. Não é necessário simular doses de uma densidade condicional ajustada. O classificador recebe os registros positivos com peso $(n+n_1)/(2n_1)$ e todos os registros com peso $(n+n_1)/(2n)$, onde $n_1=\sum_iY_i$.
+
+No Q condicional da Seção~\ref{sec:q}, o baseline cancela na identidade de $q(t\mid x)/f(t\mid x)$. No classificador de origens conjuntas, ele permanece em $\mu(t,x)/\Pp(Y=1)$ e só cancela no contraste final. Portanto, a identidade condicional e esta implementação não são o mesmo procedimento de estimação.
 
 Conversores aparecem nas duas origens e não se tornam observações independentes adicionais. Uma eventual validação para tuning deve dividir os registros originais antes dessa duplicação. Esta é uma construção plug-in próxima de um S-learner: não há garantia DR nem alegação de vantagem estatística sobre regressão direta de outcome. Ela difere do Q de inclinação exponencial com densidade pré-fixada do primeiro Monte Carlo. Nas tabelas seguintes, ``Q'' designa a implementação discreta ou contínua correspondente ao cenário.
 
@@ -80,6 +91,29 @@ Reportamos a média dessa métrica entre replicações; seu erro Monte Carlo é 
 \caption{RMSE de log-ratio na amostra independente de teste. As barras são $1{,}96$ vezes o erro Monte Carlo da média das métricas, não intervalos para o efeito de um indivíduo.}
 \label{fig:scenarios}
 \end{figure}
+
+\subsection{Comparação adicional com curvas estruturadas}
+\label{sec:targeted}
+Para investigar quanto do desempenho depende da forma relativa, \texttt{targeted\_benchmarks.py} acrescenta quatro desenhos de \eqref{eq:package-dgp}, sem modificar os CSVs ou o protocolo histórico: D1, log-linear padrão $(\kappa,c)=(0,1)$; D2, curvo com dose uniforme aleatorizada $(0{,}8,0)$; D3, curvo padrão $(0{,}8,1)$; e D4, curvo com pouco overlap $(0{,}8,4)$. Os três últimos têm a mesma superfície causal e diferem apenas na alocação. Comparamos DML linear/quadrático, regressões de log-média linear/quadrática e o S-learner anterior; Q permanece na comparação histórica.
+
+As regressões estruturadas usam \texttt{PoissonRegressor}, com intercepto, $X_1$, $X_2$, $t$, $tX_1$ e, na quadrática, $t^2$: \texttt{alpha=0}, tolerância $10^{-9}$, solver L-BFGS e até 2\,000 iterações. A perda Poisson ajusta a média de um outcome binário, sem supor dados Poisson. O link log não limita previsões a um; contamos médias inválidas no treino e no grid de teste (incluindo a referência), sem clipping. Essa comparação aproxima a complexidade das curvas, mas a regressão também impõe um baseline log-linear, correto neste desenho sintético, e não isola perfeitamente a ortogonalização. Boosting, folds e contrastes seguem as configurações históricas, sem tuning pela verdade.
+
+Executamos primeiro o smoke de duas replicações, $n=3\,000$, $n_{\rm test}=1\,000$, semente-base 731905, e depois 30 replicações por desenho, $n=12\,000$, $n_{\rm test}=2\,000$, semente-base 831905. Cada método usa os mesmos dados na replicação; treino e teste têm streams independentes e números aleatórios comuns entre desenhos. As saídas finais estão em \texttt{results/targeted\_smoke} e \texttt{results/targeted\_v1}; metadados incluem configurações, versões, commit e hashes dos fontes. Uma revisão corrigiu desempates artificiais no Spearman por arredondamento ao dividir médias: a verdade e os ratios estruturados agora usam diretamente diferenças da função log-relativa. Preservamos as saídas anteriores e repetimos as mesmas sementes, sem ajustar modelos. O registro de execução documenta também um smoke interrompido ao gravar metadados e sua repetição idêntica.
+
+\begin{table}[htbp]
+\centering
+\caption{Benchmark adicional executado: média (erro Monte Carlo) em 30 replicações. D1: linear padrão; D2: curvo aleatorizado; D3: curvo padrão; D4: curvo com pouco overlap. Falhas são contadas mesmo quando não há métrica disponível.}
+\label{tab:targeted}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\input{results/targeted_v1/targeted_table.tex}
+\end{table}
+
+No desenho linear, o RMSE médio foi 0,0808 para DML linear e 0,0829 para log-média linear; acrescentar curvatura aumentou esses erros para 0,1067 e 0,1041. Sob curvatura, o DML linear apresentou RMSE de 0,3782, 0,3918 e 0,5037 em D2--D4, contra 0,0794, 0,0754 e 0,1478 no quadrático. A log-média quadrática obteve 0,0736, 0,0705 e 0,1363: os resultados não indicam uma vantagem geral de DML sobre um comparador estruturado. Pouco overlap piorou também os modelos quadráticos. No smoke D4, o DML quadrático foi inclusive pior que o linear (0,9653 contra 0,6160); duas replicações não sustentam um ranking estável.
+
+Separadamente, o coeficiente de heterogeneidade linear do DML que omite curvatura foi $-0{,}2029$ (erro Monte Carlo 0,0135), $-0{,}0415$ (0,0136) e $+0{,}3088$ (0,0279) em D2--D4, embora a superfície causal seja a mesma. São resumos estimados sob cada alocação, não automaticamente efeitos estruturais. No DML quadrático, as estimativas correspondentes foram $-0{,}2007$, $-0{,}2082$ e $-0{,}1960$, com erros Monte Carlo 0,0137, 0,0134 e 0,0407. O arquivo de heterogeneidade registra também a log-média e a curvatura estimada. Os CSVs incluem diferenças pareadas por replicação e seus denominadores efetivos; Spearman na dose 0,8 usa empates corretos e fica indefinido quando o efeito verdadeiro é constante.
+
+Houve zero falhas e zero avisos nos 600 ajustes da referência e nos 40 do smoke final; as frações de médias Poisson inválidas foram zero no treino e no grid de todas essas replicações, sem garantia de validade em outros dados. As tabelas resumem erros de função, não cobertura do parâmetro estrutural sob especificação incorreta. Dupla robustez de nuisance não corrige a forma relativa, e a covariância exposta mantém as condições i.i.d., de identificação e de convergência já enunciadas.
 
 \subsection{Estabilização, limites e reprodução}
 O piso de propensão e de probabilidades usadas nas razões é 0,001. No DML discreto, somente as respostas \emph{após} a regressão final são limitadas a $[0{,}001,1]$; os sinais AIPW podem permanecer negativos. No S-learner, aplicamos o mesmo piso de resposta na avaliação. No Q contínuo, limitamos a probabilidade de origem a $[0{,}001,0{,}999]$; no Q discreto, aplicamos o piso às probabilidades de braço. Esses mecanismos são explicitamente distintos e não tornam iguais as classes de modelos. Um piso fixo pode alterar o alvo efetivo em regiões de baixa conversão ou overlap; resultados com clipping exigem análise de sensibilidade.

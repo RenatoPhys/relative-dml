@@ -273,6 +273,8 @@ Condicionalmente aos dados de treino de cada fold, \eqref{eq:product} limita o v
 \end{proof}
 A matriz sandwich é estimada pelo Jacobiano e pela covariância dos scores fora da amostra. Para clusters, substitui-se a soma de scores individuais por somas por cluster e usa-se uma teoria de clusters apropriada.
 
+Na API, \texttt{cov\_} guarda a covariância estimada de $\hat\theta$, incluindo o fator $1/n$, e \texttt{se\_} guarda as raízes de sua diagonal. A implementação expõe também os valores singulares do Jacobiano. A extensão opcional \texttt{dose\_degree=2} acrescenta uma curvatura comum e estima a média condicional dessa base por cross-fitting; detalhes de implementação e o benchmark adicional estão na Seção~\ref{sec:package}. Essa escolha relaxa a curva linear, mantendo uma restrição paramétrica e as hipóteses de inferência acima.
+
 \noindent\textbf{Consistência DR não é inferência DR.} A Proposição~\ref{prop:dr} admite uma nuisance persistentemente incorreta; a Proposição~\ref{prop:clt}, como enunciada, exige convergência de ambas. Se uma função permanece errada e a outra é aprendida lentamente, o drift pode ser de primeira ordem. Intervalos de confiança usuais não herdam automaticamente dupla robustez. Essa distinção é discutida por Dukes et al. \cite{dukes2024}.
 
 \subsection{Heterogeneidade flexível sem prometer uma taxa paramétrica}

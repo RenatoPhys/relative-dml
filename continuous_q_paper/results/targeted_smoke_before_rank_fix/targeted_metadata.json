@@ -1,0 +1,168 @@
+{
+  "seed": 731905,
+  "reps": 2,
+  "n": 3000,
+  "test_n": 1000,
+  "started_utc": "2026-09-05T23:14:21.175557+00:00",
+  "status": "complete",
+  "completed_rows": 40,
+  "expected_rows": 40,
+  "scenarios": [
+    {
+      "name": "linear_standard",
+      "label": "Log-linear, alocação padrão",
+      "kind": "continuous",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 1.0,
+      "curvature": 0.0,
+      "arms": 2
+    },
+    {
+      "name": "curved_randomized",
+      "label": "Curvo, dose aleatorizada uniforme",
+      "kind": "continuous",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 0,
+      "curvature": 0.8,
+      "arms": 2
+    },
+    {
+      "name": "curved_standard",
+      "label": "Curvo, alocação padrão",
+      "kind": "continuous",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 1.0,
+      "curvature": 0.8,
+      "arms": 2
+    },
+    {
+      "name": "curved_weak_overlap",
+      "label": "Curvo, pouco overlap",
+      "kind": "continuous",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 4,
+      "curvature": 0.8,
+      "arms": 2
+    }
+  ],
+  "methods": [
+    "DML-linear",
+    "DML-quadratic",
+    "Log-mean-linear",
+    "Log-mean-quadratic",
+    "S-learner"
+  ],
+  "targets": [
+    -0.8,
+    -0.4,
+    0.4,
+    0.8
+  ],
+  "reference_dose": 0.0,
+  "seed_scheme": "uint32 SeedSequence([seed, rep, stream]); stream 0=train, 1=test; common random numbers across scenarios",
+  "dml": {
+    "n_splits": 3,
+    "reference_dose": 0.0,
+    "dose_degrees": [
+      1,
+      2
+    ],
+    "effect_features": [
+      "X1"
+    ],
+    "outcome": "HistGradientBoostingClassifier",
+    "treatment": "HistGradientBoostingRegressor",
+    "boosting_params": {
+      "max_iter": 100,
+      "max_leaf_nodes": 8,
+      "min_samples_leaf": 50,
+      "l2_regularization": 2,
+      "early_stopping": false
+    }
+  },
+  "log_mean": {
+    "class_name": "sklearn.linear_model.PoissonRegressor",
+    "parameters": {
+      "alpha": 0.0,
+      "fit_intercept": true,
+      "solver": "lbfgs",
+      "max_iter": 2000,
+      "tol": 1e-09
+    },
+    "columns": [
+      "X1",
+      "X2",
+      "t",
+      "t*X1",
+      "t**2 (quadratic only)"
+    ],
+    "coefficient_order": [
+      "intercept",
+      "X1",
+      "X2",
+      "t",
+      "t*X1",
+      "t**2 (quadratic only)"
+    ],
+    "invalid_definition": "nonfinite or outside [0, 1]",
+    "documentation": "https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.PoissonRegressor.html"
+  },
+  "s_learner": {
+    "classifier": "HistGradientBoostingClassifier",
+    "parameters": {
+      "max_iter": 100,
+      "max_leaf_nodes": 8,
+      "min_samples_leaf": 50,
+      "l2_regularization": 2,
+      "early_stopping": false
+    },
+    "response_floor": 0.001
+  },
+  "versions": {
+    "python": "3.9.13",
+    "numpy": "1.26.4",
+    "scipy": "1.11.4",
+    "sklearn": "1.5.1",
+    "pandas": "2.2.2"
+  },
+  "platform": "Windows-10-10.0.26200-SP0",
+  "threads": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1"
+  },
+  "git": {
+    "commit": "c7617bcb4e981f043cf6fc184179d57dde04172f",
+    "status": "M README.md\n M continuous_q_paper/README.md\n M continuous_q_paper/package_benchmarks.tex",
+    "dirty": true
+  },
+  "source_sha256": {
+    "relative_dml/__init__.py": "c73ba1e7250ea606def00d8c38dd6613b5f304c93962df86521757a62c2810cf",
+    "relative_dml/_moment.py": "378790f91fcc97ee670db6bc7c36808c882d84dddf43653dd5c9f80cf1e080ef",
+    "relative_dml/_utils.py": "1803551bde1ecfa04baed7ada51737e92ada69cac9d4dd6ab99bbe3065a3f537",
+    "relative_dml/continuous.py": "aaf1a8e24814e3cdcfe1016fc354413d7828646996cafa15e3c70e7206d09583",
+    "relative_dml/discrete.py": "9cfb922e924795223c447fbf021425405534cc6787cffbcf5a558e9816818b1e",
+    "continuous_q_paper/targeted_benchmarks.py": "1a14a5edc30ace91f904057203748147805e7f6c034322d93a8691a53650cb0d",
+    "continuous_q_paper/scenario_experiments.py": "3c5f65a3bcc18acdacb3a24f5ff12ccb0fc9a951ac4eefa8eb8b96775b7cbf83"
+  },
+  "notes": [
+    "Same samples per method, independent test covariates, no truth-based tuning.",
+    "Convergence warnings count as failures; all failed rows and warnings remain.",
+    "Metric means/MCSE use successful runs; diagnostics use all available runs. MCSE = replication SD / sqrt(number of available replications).",
+    "Poisson loss fits the mean of binary Y; it does not assert Poisson data. Predictions outside [0,1] are counted and never clipped.",
+    "Log-mean regressions also restrict the baseline; this comparison does not perfectly isolate orthogonalization.",
+    "Under omitted curvature the fitted linear coefficient can depend on allocation. No structural coverage test is computed.",
+    "DML marginal SE/covariance require correct relative specification and iid nuisance-rate conditions; no cluster inference is provided."
+  ],
+  "finished_utc": "2026-09-05T23:14:27.535935+00:00",
+  "failures": 0,
+  "warning_runs": 0
+}
