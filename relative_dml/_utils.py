@@ -12,18 +12,18 @@ def features(X, n_features=None):
     return X
 
 
-def training_data(X, a, y):
+def training_data(X, t, y):
     X = features(X)
-    a, y = np.asarray(a), np.asarray(y, float)
-    if a.ndim != 1 or y.ndim != 1 or len(a) != len(X) or len(y) != len(X):
-        raise ValueError('a and y must be vectors with one entry per row of X.')
+    t, y = np.asarray(t), np.asarray(y, float)
+    if t.ndim != 1 or y.ndim != 1 or len(t) != len(X) or len(y) != len(X):
+        raise ValueError('t and y must be vectors with one entry per row of X.')
     if not np.isin(y, [0, 1]).all() or len(np.unique(y)) != 2:
         raise ValueError('y must be binary and contain both 0 and 1.')
-    if a.dtype.kind in 'biuf' and not np.isfinite(a).all():
+    if t.dtype.kind in 'biuf' and not np.isfinite(t).all():
         raise ValueError('Treatment must be finite.')
-    if any(value is None or value != value for value in a):
+    if any(value is None or value != value for value in t):
         raise ValueError('Treatment must not contain missing values.')
-    return X, a, y
+    return X, t, y
 
 
 def learner(model, classifier, random_state):

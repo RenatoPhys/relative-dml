@@ -11,9 +11,9 @@ from relative_dml.discrete import _aipw
 
 def arm_table():
     # Saturated finite population: exactly 10%, 20%, 30% conversion.
-    a = np.repeat(['control', 'high', 'low'], 600)
+    t = np.repeat(['control', 'high', 'low'], 600)
     y = np.concatenate([np.r_[np.ones(k), np.zeros(600-k)] for k in [60, 120, 180]])
-    return np.ones((len(a), 1)), a, y
+    return np.ones((len(t), 1)), t, y
 
 
 @pytest.mark.parametrize('estimator', [
@@ -21,8 +21,8 @@ def arm_table():
     DiscreteDML(DummyClassifier(), DummyClassifier(), DummyRegressor()),
 ])
 def test_multiclass_empirical_ratios_and_labels(estimator):
-    X, a, y = arm_table()
-    model = clone(estimator).fit(X, a, y)
+    X, t, y = arm_table()
+    model = clone(estimator).fit(X, t=t, y=y)
     assert_allclose(model.predict_ratio(X[:3], 'high', 'control'), 2, atol=1e-12)
     assert_allclose(model.predict_lift(X[:3], 'low', 'control'), 2, atol=1e-12)
     assert_allclose(model.predict_ratio(X[:3], 'control', 'control'), 1)
@@ -36,7 +36,7 @@ def test_aipw_exact_double_robustness(correct):
     e, mu = .3, .2
     eh = e if correct in ['propensity', 'both'] else .6
     mh = mu if correct in ['outcome', 'both'] else .4
-    # Exact expectation over (A,Y); Y outside this arm does not enter the signal.
+    # Exact expectation over (T,Y); Y outside this arm does not enter the signal.
     signal = _aipw(np.array([1., 0., 0.]), np.array([1, 1, 0]), mh, eh)
     expected = np.dot([e*mu, e*(1-mu), 1-e], signal)
     assert_allclose(expected - mu, (1-e/eh)*(mh-mu), atol=1e-14)
@@ -61,11 +61,11 @@ def test_first_order_ratio_correction_is_not_exactly_dr():
 def test_multiplicative_moment_exact_dr(correct):
     # True mu(0)=.1, mu(1)=.2, so slope=log(2). Repeated cells
     # integrate the binary outcome exactly, without Monte Carlo tolerance.
-    a = np.repeat([0., 1.], 1000)
+    t = np.repeat([0., 1.], 1000)
     y = np.r_[np.ones(100), np.zeros(900), np.ones(200), np.zeros(800)]
     b = np.full(2000, .1 if correct in ['baseline', 'both'] else .3)
-    ma = np.full(2000, .5 if correct in ['mean', 'both'] else .2)
-    est = fit_multiplicative_dml(a, y, np.ones((2000, 1)), b, ma)
+    mt = np.full(2000, .5 if correct in ['mean', 'both'] else .2)
+    est = fit_multiplicative_dml(t=t, y=y, v=np.ones((2000, 1)), b_hat=b, m_t_hat=mt)
     assert_allclose(est.theta, [np.log(2)], atol=1e-10)
     assert est.se[0] > 0 and est.moment_norm < 1e-10
 
@@ -74,8 +74,8 @@ def test_continuous_q_joint_density_identity():
     # A two-dose saturated example verifies the implementation's exact
     # joint-density formula, including the duplicated positive records.
     X, labels, y = arm_table()
-    a = np.repeat([-1., 0., 1.], 600)
-    model = ContinuousQLearner(DecisionTreeClassifier(max_depth=2)).fit(X, a, y)
+    t = np.repeat([-1., 0., 1.], 600)
+    model = ContinuousQLearner(DecisionTreeClassifier(max_depth=2)).fit(X, t=t, y=y)
     assert_allclose(model.predict_ratio(X[:5], 1, -1), 3, atol=1e-12)
     assert_allclose(model.predict_lift(X[:5], 0, -1), 1, atol=1e-12)
     assert_allclose(model.predict_ratio(X[:5], [-1, 0, 1, 0, -1], -1), [1, 2, 3, 2, 1])
@@ -108,9 +108,9 @@ class HonestRegressor(RegressorMixin, BaseEstimator):
 
 
 def test_discrete_cross_fitting_has_no_nuisance_leakage():
-    X, a, y = arm_table()
+    X, t, y = arm_table()
     X[:, 0] = np.arange(len(X))
-    model = DiscreteDML(HonestClassifier(), HonestClassifier(), DummyRegressor()).fit(X, a, y)
+    model = DiscreteDML(HonestClassifier(), HonestClassifier(), DummyRegressor()).fit(X, t, y)
     assert set(model.fold_ids_) == {0, 1, 2}
     assert np.isfinite(model.pseudo_outcomes_).all()
     assert np.any(model.pseudo_outcomes_ < 0)  # Signals are not silently clipped.
@@ -120,9 +120,9 @@ def test_continuous_cross_fitting_and_nonzero_reference():
     rng = np.random.default_rng(913)
     n = 12000
     X = np.arange(n, dtype=float)[:, None]
-    a = rng.uniform(1, 3, n)
-    y = rng.binomial(1, .2*np.exp(-.4*(a-2)))
-    model = ContinuousDML(HonestClassifier(), HonestRegressor(), reference_dose=2).fit(X, a, y)
+    t = rng.uniform(1, 3, n)
+    y = rng.binomial(1, .2*np.exp(-.4*(t-2)))
+    model = ContinuousDML(HonestClassifier(), HonestRegressor(), reference_dose=2).fit(X, t=t, y=y)
     assert abs(model.coef_[0] + .4) < .12
     assert set(model.fold_ids_) == {0, 1, 2}
     assert_allclose(model.predict_ratio(X[:4], 2.5, 1.5), np.exp(model.coef_[0]))
@@ -134,9 +134,9 @@ def test_continuous_heterogeneity_recovery_and_feature_contract():
     rng = np.random.default_rng(39)
     n = 24000
     X = rng.choice([-1., 1.], (n, 1))
-    a = rng.uniform(-1, 1, n)
-    y = rng.binomial(1, .2*np.exp(a*(-.3-.25*X[:, 0])))
-    model = ContinuousDML(treatment_model=DummyRegressor()).fit(X, a, y, X)
+    t = rng.uniform(-1, 1, n)
+    y = rng.binomial(1, .2*np.exp(t*(-.3-.25*X[:, 0])))
+    model = ContinuousDML(treatment_model=DummyRegressor()).fit(X, t, y, X)
     assert_allclose(model.coef_, [-.3, -.25], atol=.12)
     with pytest.raises(ValueError, match='effect_features'):
         model.predict_slope(X[:4])
@@ -149,31 +149,31 @@ def test_continuous_heterogeneity_recovery_and_feature_contract():
 @pytest.mark.parametrize('estimator', [DiscreteQLearner(), DiscreteDML(),
                                        ContinuousQLearner(), ContinuousDML()])
 def test_input_validation(estimator):
-    X, a, y = arm_table()
-    a = np.repeat([-1., 0., 1.], 600)
+    X, t, y = arm_table()
+    t = np.repeat([-1., 0., 1.], 600)
     for bad_y in [np.full(len(y), 2), np.zeros(len(y)), y[:, None], y[:-1]]:
         with pytest.raises(ValueError):
-            clone(estimator).fit(X, a, bad_y)
+            clone(estimator).fit(X, t, bad_y)
     with pytest.raises(ValueError):
-        clone(estimator).fit(X, np.full(len(a), np.nan), y)
+        clone(estimator).fit(X, np.full(len(t), np.nan), y)
     with pytest.raises(ValueError):
-        clone(estimator).fit(X, np.ones(len(a)), y)
+        clone(estimator).fit(X, np.ones(len(t)), y)
 
 
 def test_sparse_arms_and_unidentified_design_fail_clearly():
-    X, a, y = arm_table()
-    y[a == 'high'] = 0
+    X, t, y = arm_table()
+    y[t == 'high'] = 0
     for model in [DiscreteQLearner(), DiscreteDML()]:
         with pytest.raises(ValueError):
-            model.fit(X, a, y)
+            model.fit(X, t, y)
     with pytest.raises(RuntimeError, match='condicionado'):
         fit_multiplicative_dml(np.tile([0, 1], 20), np.tile([0, 1], 20),
                                np.ones((40, 2)), np.full(40, .2), np.full(40, .5))
 
 
 def test_response_clipping_is_visible():
-    X, a, y = arm_table()
+    X, t, y = arm_table()
     model = DiscreteDML(DummyClassifier(), DummyClassifier(),
-                        DummyRegressor(strategy='constant', constant=-.1)).fit(X, a, y)
+                        DummyRegressor(strategy='constant', constant=-.1)).fit(X, t, y)
     with pytest.warns(RuntimeWarning, match='clipped'):
         assert_allclose(model.predict_response(X[:2], 'control'), model.clip)

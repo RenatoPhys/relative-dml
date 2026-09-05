@@ -16,31 +16,31 @@ class Estimate:
     jac_condition: float
 
 
-def fit_multiplicative_dml(a: Array, y: Array, v: Array,
-                           b_hat: Array, m_a_hat: Array,
+def fit_multiplicative_dml(t: Array, y: Array, v: Array,
+                           b_hat: Array, m_t_hat: Array,
                            start: Array | None = None) -> Estimate:
-    """Resolve o momento CQ-DML para g(a,x)=a v(x)'theta.
+    """Resolve o momento CQ-DML para g(t,x)=t v(x)'theta.
 
-    b_hat e m_a_hat devem vir de folds externos ou ser funções pré-fixadas.
+    b_hat e m_t_hat devem vir de folds externos ou ser funções pré-fixadas.
     O sandwich é justificado na interseção das nuisances sob taxas DML;
     não reivindica inferência DR sob misspecificação arbitrária de nuisance.
     """
-    a, y = np.asarray(a, float), np.asarray(y, float)
+    t, y = np.asarray(t, float), np.asarray(y, float)
     v = np.asarray(v, float)
-    b_hat, m_a_hat = np.asarray(b_hat, float), np.asarray(m_a_hat, float)
-    if any(z.ndim != 1 for z in (a, y, b_hat, m_a_hat)):
-        raise ValueError('a, y, b_hat e m_a_hat devem ser vetores.')
-    n = len(a)
-    if v.ndim != 2 or not v.shape[1] or n <= v.shape[1] or any(len(z) != n for z in (y, v, b_hat, m_a_hat)):
+    b_hat, m_t_hat = np.asarray(b_hat, float), np.asarray(m_t_hat, float)
+    if any(z.ndim != 1 for z in (t, y, b_hat, m_t_hat)):
+        raise ValueError('t, y, b_hat e m_t_hat devem ser vetores.')
+    n = len(t)
+    if v.ndim != 2 or not v.shape[1] or n <= v.shape[1] or any(len(z) != n for z in (y, v, b_hat, m_t_hat)):
         raise ValueError('Dimensões incompatíveis.')
-    if not all(np.isfinite(z).all() for z in (a, y, v, b_hat, m_a_hat)):
+    if not all(np.isfinite(z).all() for z in (t, y, v, b_hat, m_t_hat)):
         raise ValueError('Valores ausentes ou não finitos.')
     if not np.isin(y, [0, 1]).all() or not np.any(y == 1):
         raise ValueError('y deve ser binário e conter conversores.')
     if np.any((b_hat < 0) | (b_hat > 1)):
         raise ValueError('b_hat deve estar entre 0 e 1.')
-    h = a[:, None]*v
-    r = (a-m_a_hat)[:, None]*v
+    h = t[:, None]*v
+    r = (t-m_t_hat)[:, None]*v
 
     def moment(theta):
         eta = -h@theta

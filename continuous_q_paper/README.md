@@ -70,16 +70,16 @@ A extensão não paramétrica com intervenções estocásticas tem provas e veri
 from experiments import fit_multiplicative_dml
 
 estimate = fit_multiplicative_dml(
-    a=a,               # vetor de doses, referência a=0
+    t=t,               # vetor de doses, referência t=0
     y=y,               # vetor binário de conversão
     v=v,               # matriz (n,d) de modificadores do efeito, incluindo 1 se necessário
     b_hat=b_hat_oof,    # predições fora da amostra de P(Y(0)=1 | X)
-    m_a_hat=m_hat_oof,  # predições fora da amostra de E[A | X]
+    m_t_hat=m_hat_oof,  # predições fora da amostra de E[T | X]
 )
 print(estimate.theta, estimate.se)
 ```
 
-O modelo implementado é `mu(a,x)=b(x)*exp(a*v(x)'theta)`. O código **não** implementa uma superfície dose–resposta completamente irrestrita. `b_hat` e `m_a_hat` devem ser predições cross-fitted ou funções pré-fixadas; não há como a função detectar treinamento incorreto por parte de quem a chama. Para clientes com múltiplas simulações, é necessário adaptar os folds e a inferência ao agrupamento; o código sintético usa observações i.i.d.
+O modelo implementado é `mu(t,x)=b(x)*exp(t*v(x)'theta)`. No manuscrito, `T` representa o tratamento e `t` seu valor. O código **não** implementa uma superfície dose–resposta completamente irrestrita. `b_hat` e `m_t_hat` devem ser predições cross-fitted ou funções pré-fixadas; não há como a função detectar treinamento incorreto por parte de quem a chama. Para clientes com múltiplas simulações, é necessário adaptar os folds e a inferência ao agrupamento; o código sintético usa observações i.i.d.
 
 O estimador rejeita incompatibilidades dimensionais, valores não finitos, raízes numericamente inadequadas e identificação muito mal condicionada. Isso não substitui diagnósticos de confundimento, suporte, forma funcional ou validade probabilística. Não é uma solução pronta para produção ou decisão de crédito.
 

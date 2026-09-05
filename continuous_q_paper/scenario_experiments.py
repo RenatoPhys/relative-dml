@@ -49,9 +49,9 @@ SCENARIOS = [
 ]
 
 
-def response(s, X, a):
+def response(s, X, t):
     b = s.baseline*np.exp(.65*X[:, 0] + .4*X[:, 1])
-    g = a*(s.effect + s.heterogeneity*X[:, 0]) + s.curvature*a*a
+    g = t*(s.effect + s.heterogeneity*X[:, 0]) + s.curvature*t*t
     mu = b*np.exp(g)
     if np.any((mu <= 0) | (mu >= 1)):
         raise ValueError('Synthetic probabilities outside (0, 1).')
@@ -63,14 +63,14 @@ def generate(s, n, rng):
     alpha = s.confounding*(.9*X[:, 0] + .6*X[:, 1])
     if s.kind == 'continuous':
         u = rng.uniform(size=n)
-        a = 2*u-1
+        t = 2*u-1
         keep = np.abs(alpha) > 1e-8
-        a[keep] = -1 + np.log1p(u[keep]*np.expm1(2*alpha[keep]))/alpha[keep]
+        t[keep] = -1 + np.log1p(u[keep]*np.expm1(2*alpha[keep]))/alpha[keep]
     else:
         e = softmax(alpha[:, None]*np.arange(s.arms), axis=1)
-        a = (rng.uniform(size=n)[:, None] > np.cumsum(e, axis=1)).sum(axis=1)
-    y = rng.binomial(1, response(s, X, a))
-    return X, a, y
+        t = (rng.uniform(size=n)[:, None] > np.cumsum(e, axis=1)).sum(axis=1)
+    y = rng.binomial(1, response(s, X, t))
+    return X, t, y
 
 
 def classifier(seed):
@@ -80,18 +80,18 @@ def classifier(seed):
 
 def evaluate(s, model, X, targets, method):
     predictions, truths = [], []
-    for a in targets:
+    for t in targets:
         if method == 'S-learner':
-            mu = model.predict_proba(np.column_stack([X, np.full(len(X), a)]))[:, 1]
+            mu = model.predict_proba(np.column_stack([X, np.full(len(X), t)]))[:, 1]
             b = model.predict_proba(np.column_stack([X, np.zeros(len(X))]))[:, 1]
             if np.any((mu < .001) | (b < .001)):
                 warnings.warn('S-learner response clipped.', RuntimeWarning)
             ratio = np.maximum(mu, .001)/np.maximum(b, .001)
         elif isinstance(model, ContinuousDML):
-            ratio = model.predict_ratio(X, a, 0, effect_features=X[:, :1])
+            ratio = model.predict_ratio(X, t, 0, effect_features=X[:, :1])
         else:
-            ratio = model.predict_ratio(X, a, 0)
-        truth = response(s, X, a)/response(s, X, 0)
+            ratio = model.predict_ratio(X, t, 0)
+        truth = response(s, X, t)/response(s, X, 0)
         if not np.isfinite(ratio).all() or np.any(ratio <= 0):
             raise FloatingPointError('Invalid ratio prediction.')
         predictions.append(ratio)
@@ -123,7 +123,7 @@ def main():
     for case, s in enumerate(SCENARIOS):
         for rep in range(args.reps):
             seed = args.seed + 1000*case + rep
-            X, a, y = generate(s, args.n, np.random.default_rng(seed))
+            X, t, y = generate(s, args.n, np.random.default_rng(seed))
             Xt, _, _ = generate(s, args.test_n, np.random.default_rng(seed + 1000000))
             targets = [-.8, -.4, .4, .8] if s.kind == 'continuous' else list(range(1, s.arms))
             q = ContinuousQLearner(random_state=seed) if s.kind == 'continuous' else DiscreteQLearner(random_state=seed)
@@ -141,11 +141,11 @@ def main():
                     warnings.simplefilter('always')
                     try:
                         if method == 'S-learner':
-                            model.fit(np.column_stack([X, a]), y)
+                            model.fit(np.column_stack([X, t]), y)
                         elif isinstance(model, ContinuousDML):
-                            model.fit(X, a, y, effect_features=X[:, :1])
+                            model.fit(X, t, y, effect_features=X[:, :1])
                         else:
-                            model.fit(X, a, y)
+                            model.fit(X, t, y)
                         row.update(evaluate(s, model, Xt, targets, method))
                         row['success'] = True
                         if isinstance(model, ContinuousDML):

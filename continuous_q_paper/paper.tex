@@ -54,10 +54,10 @@ Em problemas de precificação com conversão binária, efeitos causais em ponto
 \label{sec:intro}
 Considere clientes que simularam um financiamento e foram aprovados por crédito. A resposta observada é a contratação dentro de uma janela previamente definida. Em um funil cuja conversão média é aproximadamente 6\%, há segmentos que convertem muito menos e outros que convertem perto de 25\%. Uma mudança de taxa que aumenta a conversão proporcionalmente em 20\% produz ganhos absolutos de 0,4 ponto percentual quando a conversão-base é 2\%, mas de 5 pontos percentuais quando a conversão-base é 25\%. Não há contradição: heterogeneidade absoluta e heterogeneidade relativa são alvos diferentes.
 
-Para duas doses $a$ e $a_0$, escreva $\mu(a,x)=\Pp\{Y(a)=1\mid X=x\}$. A decomposição
+Para duas doses $t$ e $t_0$, escreva $\mu(t,x)=\Pp\{Y(t)=1\mid X=x\}$. A decomposição
 \begin{equation}
-\mu(a,x)-\mu(a_0,x)
-=\mu(a_0,x)\left\{\frac{\mu(a,x)}{\mu(a_0,x)}-1\right\}
+\mu(t,x)-\mu(t_0,x)
+=\mu(t_0,x)\left\{\frac{\mu(t,x)}{\mu(t_0,x)}-1\right\}
 \label{eq:decomp}
 \end{equation}
 mostra que um CATE aditivo pode reproduzir o ranking de conversão-base sem existir heterogeneidade relativa. A ortogonalização usada em DML não elimina uma associação causal verdadeira entre efeito absoluto e baseline. Nosso objetivo é representar explicitamente a \emph{forma relativa da curva de conversão}, mantendo sua escala absoluta disponível para avaliar valor econômico.
@@ -74,29 +74,29 @@ As proposições são acompanhadas de demonstrações e os resultados numéricos
 
 \section{Definições e identificação causal}
 \label{sec:setup}
-Observamos $O=(X,A,Y)$, com $Y\in\{0,1\}$ e dose $A\in\mathcal A_x\subseteq\R$. As covariáveis $X$ são anteriores à intervenção. Inicialmente, consideramos observações independentes; para simulações repetidas do mesmo cliente, o particionamento e a inferência devem respeitar os clusters.
+Observamos $O=(X,T,Y)$, com $Y\in\{0,1\}$ e dose $T\in\mathcal T_x\subseteq\R$. Usamos $T$ para a variável de tratamento/taxa, $t$ para seu valor e $t_0$ para a referência. As covariáveis $X$ são anteriores à intervenção. Inicialmente, consideramos observações independentes; para simulações repetidas do mesmo cliente, o particionamento e a inferência devem respeitar os clusters.
 
-Assumimos consistência $Y=Y(A)$, ausência de interferência relevante e intercambialidade condicional $Y(a)\perp A\mid X$ para as doses de interesse. Sob essas hipóteses,
+Assumimos consistência $Y=Y(T)$, ausência de interferência relevante e intercambialidade condicional $Y(t)\perp T\mid X$ para as doses de interesse. Sob essas hipóteses,
 \[
-\mu(a,x)=\E[Y\mid A=a,X=x].
+\mu(t,x)=\E[Y\mid T=t,X=x].
 \]
-Para tratamentos contínuos, igualdades condicionais valem quase em toda parte; a identificação em pontos determinados requer uma versão regular, por exemplo contínua em $a$. A interpretação causal depende dessas hipóteses; a identidade de Bayes apresentada adiante, por si só, é apenas probabilística.
+Para tratamentos contínuos, igualdades condicionais valem quase em toda parte; a identificação em pontos determinados requer uma versão regular, por exemplo contínua em $t$. A interpretação causal depende dessas hipóteses; a identidade de Bayes apresentada adiante, por si só, é apenas probabilística.
 
 Denote por
 \begin{align}
-f(a\mid x)&=f_{A\mid X}(a\mid x),&
+f(t\mid x)&=f_{T\mid X}(t\mid x),&
 p(x)&=\Pp(Y=1\mid X=x)=\int\mu(u,x)f(u\mid x)\,du,\label{eq:defs}\\
-q(a\mid x)&=f_{A\mid X,Y=1}(a\mid x).&&\notag
+q(t\mid x)&=f_{T\mid X,Y=1}(t\mid x).&&\notag
 \end{align}
-Aqui $f$ é a densidade de alocação do tratamento; $p$ é a conversão sob a política observada; e $q$ é a densidade da dose entre conversores. Em geral, $p(x)\ne\mu(a_0,x)$.
+Aqui $f$ é a densidade de alocação do tratamento; $p$ é a conversão sob a política observada; e $q$ é a densidade da dose entre conversores. Em geral, $p(x)\ne\mu(t_0,x)$.
 
-Escolha uma referência pré-especificada $a_0(x)$ no suporte de interesse. Os alvos são
+Escolha uma referência pré-especificada $t_0(x)$ no suporte de interesse. Os alvos são
 \begin{align}
-R(a,a_0;x)&=\frac{\mu(a,x)}{\mu(a_0,x)},&
-g(a,a_0;x)&=\log R(a,a_0;x),\label{eq:targets}\\
-s(a,x)&=\partial_a\log\mu(a,x).&&\notag
+R(t,t_0;x)&=\frac{\mu(t,x)}{\mu(t_0,x)},&
+g(t,t_0;x)&=\log R(t,t_0;x),\label{eq:targets}\\
+s(t,x)&=\partial_t\log\mu(t,x).&&\notag
 \end{align}
-São necessárias conversões de referência estritamente positivas. Quando $A=r$ é a taxa bruta positiva, a elasticidade é $\varepsilon(r,x)=r\,s(r,x)$. Quando $A=\log\{r/r_{\mathrm{base}}(x)\}$, com taxa-base pré-tratamento, $s(a,x)$ já é a elasticidade em relação a $r$. Uma normalização adicional $A=\log\{r/r_{\mathrm{base}}(x)\}/c$ implica $\varepsilon=s/c$.
+São necessárias conversões de referência estritamente positivas. Quando $T=r$ é a taxa bruta positiva, a elasticidade é $\varepsilon(r,x)=r\,s(r,x)$. Quando $T=\log\{r/r_{\mathrm{base}}(x)\}$, com taxa-base pré-tratamento, $s(t,x)$ já é a elasticidade em relação a $r$. Uma normalização adicional $T=\log\{r/r_{\mathrm{base}}(x)\}/c$ implica $\varepsilon=s/c$.
 
 \begin{remark}[Unidades e população]
 Uma alteração de 0,1 ponto percentual na taxa mensal não equivale a uma alteração relativa de 10\%. O estimando deve fixar a convenção. O recorte de clientes aprovados é admissível como população-alvo se aprovação e entrada no funil antecedem a intervenção. Se a taxa testada altera a probabilidade de entrar no recorte, há seleção pós-tratamento, que não é corrigida pela escolha da escala relativa.
@@ -106,48 +106,48 @@ Uma alteração de 0,1 ponto percentual na taxa mensal não equivale a uma alter
 \label{sec:q}
 \begin{theorem}[Identidade Q contínua]
 \label{prop:bayes}
-Se $p(x)>0$ e $f(a\mid x)>0$ no domínio avaliado, então
+Se $p(x)>0$ e $f(t\mid x)>0$ no domínio avaliado, então
 \begin{equation}
-q(a\mid x)=\frac{\mu(a,x)f(a\mid x)}{p(x)}.
+q(t\mid x)=\frac{\mu(t,x)f(t\mid x)}{p(x)}.
 \label{eq:bayes}
 \end{equation}
-Consequentemente, quando $\mu(a_0,x)>0$,
+Consequentemente, quando $\mu(t_0,x)>0$,
 \begin{equation}
-\boxed{R(a,a_0;x)=\frac{q(a\mid x)}{q(a_0\mid x)}
-                           \frac{f(a_0\mid x)}{f(a\mid x)}.}
+\boxed{R(t,t_0;x)=\frac{q(t\mid x)}{q(t_0\mid x)}
+                           \frac{f(t_0\mid x)}{f(t\mid x)}.}
 \label{eq:qratio}
 \end{equation}
-Se as funções são diferenciáveis e positivas em $a$,
+Se as funções são diferenciáveis e positivas em $t$,
 \begin{equation}
-\boxed{s(a,x)=\partial_a\log q(a\mid x)-\partial_a\log f(a\mid x).}
+\boxed{s(t,x)=\partial_t\log q(t\mid x)-\partial_t\log f(t\mid x).}
 \label{eq:qderiv}
 \end{equation}
 \end{theorem}
 \begin{proof}
-A densidade conjunta de $A=a$ e $Y=1$ dado $X=x$ é $\mu(a,x)f(a\mid x)$. Dividir por $p(x)$ produz \eqref{eq:bayes}. Tomar a razão em duas doses cancela $p(x)$; derivar o logaritmo cancela $\log p(x)$.
+A densidade conjunta de $T=t$ e $Y=1$ dado $X=x$ é $\mu(t,x)f(t\mid x)$. Dividir por $p(x)$ produz \eqref{eq:bayes}. Tomar a razão em duas doses cancela $p(x)$; derivar o logaritmo cancela $\log p(x)$.
 \end{proof}
 A identidade é exata para desfechos Bernoulli; nenhuma aproximação de evento raro ou equivalência entre odds ratio e risk ratio foi utilizada. Em um tratamento discreto, as integrais são somas e $f,q$ são funções de massa, recuperando a identidade multiclasses. Distribuições mistas exigem uma medida dominante apropriada, e não uma densidade contínua artificial.
 
 \subsection{Uma interpretação que separa propensão e sensibilidade}
-Se $\mu(a,x)=b(x)r(a,x)$, com $r(a_0,x)=1$, então
+Se $\mu(t,x)=b(x)r(t,x)$, com $r(t_0,x)=1$, então
 \begin{equation}
-q(a\mid x)=\frac{r(a,x)f(a\mid x)}{\int r(u,x)f(u\mid x)\,du}.
+q(t\mid x)=\frac{r(t,x)f(t\mid x)}{\int r(u,x)f(u\mid x)\,du}.
 \label{eq:tilt}
 \end{equation}
-O nível $b(x)$ desaparece. Assim, a alteração da distribuição de taxas entre os conversores identifica a \emph{forma relativa} da curva, depois de corrigir a alocação original. Isso não torna o procedimento imune a confundimento: em dados observacionais, a correção por $f(a\mid x)$ continua essencial.
+O nível $b(x)$ desaparece. Assim, a alteração da distribuição de taxas entre os conversores identifica a \emph{forma relativa} da curva, depois de corrigir a alocação original. Isso não torna o procedimento imune a confundimento: em dados observacionais, a correção por $f(t\mid x)$ continua essencial.
 
 O fato de usarmos conversores não consiste em tratar a população selecionada como um novo experimento causal. Trata-se de uma fatoração da distribuição conjunta observada. A interpretação causal é herdada das hipóteses de identificação na população original.
 
 \subsection{Q-Learner por inclinação exponencial}
-Escreva $r_g(a,x)=\exp g(a,x)$ e imponha $g(a_0(x),x)=0$. Para $f$ conhecido, defina
+Escreva $r_g(t,x)=\exp g(t,x)$ e imponha $g(t_0(x),x)=0$. Para $f$ conhecido, defina
 \begin{equation}
-q_g(a\mid x)=\frac{f(a\mid x)\exp g(a,x)}{Z_g(x)},\qquad
+q_g(t\mid x)=\frac{f(t\mid x)\exp g(t,x)}{Z_g(x)},\qquad
 Z_g(x)=\int f(u\mid x)\exp g(u,x)\,du.
 \label{eq:qmodel}
 \end{equation}
 Um critério natural é
 \begin{equation}
-\mathcal L_Q(g)=\E\left[Y\{-g(A,X)+\log Z_g(X)\}\right].
+\mathcal L_Q(g)=\E\left[Y\{-g(T,X)+\log Z_g(X)\}\right].
 \label{eq:qloss}
 \end{equation}
 Termos independentes de $g$ foram omitidos. O critério usa apenas conversores para a parte da verossimilhança que depende da resposta relativa.
@@ -161,43 +161,43 @@ Se a classe contém a função verdadeira $g_0$ e $f$ é a densidade verdadeira,
 O minimizador identifica $g_0$ até uma constante dependente de $X$; a normalização na referência remove essa indeterminação.
 \end{theorem}
 \begin{proof}
-Condicionando em $X,Y=1$, a diferença de perdas é a diferença entre entropias cruzadas de $q_0$ e $q_g$. A média na população original pondera esse termo por $p(X)$. Se $q_g=q_0$, \eqref{eq:qmodel} implica que $g-g_0$ é constante em $a$ para cada $x$.
+Condicionando em $X,Y=1$, a diferença de perdas é a diferença entre entropias cruzadas de $q_0$ e $q_g$. A média na população original pondera esse termo por $p(X)$. Se $q_g=q_0$, \eqref{eq:qmodel} implica que $g-g_0$ é constante em $t$ para cada $x$.
 \end{proof}
 \noindent\textbf{Limitação.} Substituir $f$ por $\hat f$ não torna o estimador duplamente robusto. Se a densidade estiver errada, parte do erro pode ser absorvida por $g$. Cross-fitting reduz dependências de treinamento, mas não elimina essa misspecificação.
 
 \subsection{Implementação alternativa por classificação de densidades}
-A identidade não obriga a ajustar duas densidades completas. Para cada covariável $X$ de um conversor, podemos contrastar a dose observada, proveniente de $q(\cdot\mid X)$, com doses de referência simuladas de $f(\cdot\mid X)$. Com classes balanceadas \emph{condicionalmente em $X$}, um classificador $D(a,x)$ que distingue as duas origens satisfaz
+A identidade não obriga a ajustar duas densidades completas. Para cada covariável $X$ de um conversor, podemos contrastar a dose observada, proveniente de $q(\cdot\mid X)$, com doses de referência simuladas de $f(\cdot\mid X)$. Com classes balanceadas \emph{condicionalmente em $X$}, um classificador $D(t,x)$ que distingue as duas origens satisfaz
 \[
-\frac{D(a,x)}{1-D(a,x)}=\frac{q(a\mid x)}{f(a\mid x)}.
+\frac{D(t,x)}{1-D(t,x)}=\frac{q(t\mid x)}{f(t\mid x)}.
 \]
 Logo,
 \[
-g(a,a_0;x)=\logit D(a,x)-\logit D(a_0,x).
+g(t,t_0;x)=\logit D(t,x)-\logit D(t_0,x).
 \]
-A geração de referências deve preservar a distribuição condicional de $A\mid X$. Amostrar taxas marginais de outros clientes sem essa correção é, em geral, incorreto. Referências adicionais reduzem erro de integração ou de contraste, não criam novos conversores independentes. A abordagem pertence à tradição de estimação direta de razões de densidade \cite{sugiyama2012}.
+A geração de referências deve preservar a distribuição condicional de $T\mid X$. Amostrar taxas marginais de outros clientes sem essa correção é, em geral, incorreto. Referências adicionais reduzem erro de integração ou de contraste, não criam novos conversores independentes. A abordagem pertence à tradição de estimação direta de razões de densidade \cite{sugiyama2012}.
 
 \section{CQ-DML: um momento multiplicativo ortogonal}
 \label{sec:dml}
 A extensão Q anterior é não paramétrica como identidade. Para um estimador simples e regular de dimensão fixa, introduzimos uma restrição explícita sobre a forma relativa:
 \begin{equation}
-\mu(a,x)=b_0(x)\exp\{\theta_0^{\mathsf T}H(a,x)\},
-\qquad H(a_0(x),x)=0,
+\mu(t,x)=b_0(x)\exp\{\theta_0^{\mathsf T}H(t,x)\},
+\qquad H(t_0(x),x)=0,
 \label{eq:structural}
 \end{equation}
-onde $H:\mathcal A\times\mathcal X\to\R^d$ é uma base conhecida, $d$ é fixo e $b_0(x)=\mu(a_0(x),x)$. O modelo admite interações, splines de dose e não linearidade em $X$ incorporadas a $H$, mas não é uma superfície completamente irrestrita.
+onde $H:\mathcal T\times\mathcal X\to\R^d$ é uma base conhecida, $d$ é fixo e $b_0(x)=\mu(t_0(x),x)$. O modelo admite interações, splines de dose e não linearidade em $X$ incorporadas a $H$, mas não é uma superfície completamente irrestrita.
 
-Por exemplo, $H(a,x)=a\,v(x)$ com referência zero produz $g(a,x)=a\,v(x)^{\mathsf T}\theta_0$. Se $a$ é a log-variação da taxa, $v(x)^{\mathsf T}\theta_0$ é a elasticidade constante ao longo da janela de dose, mas heterogênea entre perfis.
+Por exemplo, $H(t,x)=t\,v(x)$ com referência zero produz $g(t,x)=t\,v(x)^{\mathsf T}\theta_0$. Se $t$ é a log-variação da taxa, $v(x)^{\mathsf T}\theta_0$ é a elasticidade constante ao longo da janela de dose, mas heterogênea entre perfis.
 
 \subsection{O momento e a identidade de viés}
 Defina
 \begin{equation}
-m_0(x)=\E[H(A,X)\mid X=x].
+m_0(x)=\E[H(T,X)\mid X=x].
 \label{eq:mH}
 \end{equation}
 Para funções candidatas $b,m$, considere o vetor
 \begin{equation}
-\boxed{\psi(O;\theta,b,m)=\{H(A,X)-m(X)\}
-   \left[Y\exp\{-\theta^{\mathsf T}H(A,X)\}-b(X)\right].}
+\boxed{\psi(O;\theta,b,m)=\{H(T,X)-m(X)\}
+   \left[Y\exp\{-\theta^{\mathsf T}H(T,X)\}-b(X)\right].}
 \label{eq:psi}
 \end{equation}
 O fator transformado $Y\exp(-g)$ remove a resposta multiplicativa da conversão; o fator $H-m$ centraliza as características da dose. A construção é um momento de G-estimação, relacionado aos modelos de riscos relativos de \cite{dukes2018,yin2022}. A proposta aqui não é a transformação multiplicativa, mas sua apresentação conjunta com a fatoração Q, implementação por cross-fitting e validação de políticas suavizadas.
@@ -215,7 +215,7 @@ Portanto o momento na verdade é zero se $b=b_0$ ou se $m=m_0$. Sob identificaç
 \begin{proof}
 Por \eqref{eq:structural},
 \[
-\E\left[Y\exp\{-\theta_0^{\mathsf T}H(A,X)\}\mid A,X\right]=b_0(X).
+\E\left[Y\exp\{-\theta_0^{\mathsf T}H(T,X)\}\mid T,X\right]=b_0(X).
 \]
 Aplicar a propriedade da torre a \eqref{eq:psi} dá
 \[
@@ -223,7 +223,7 @@ Aplicar a propriedade da torre a \eqref{eq:psi} dá
 =(m_0-m)(b_0-b).
 \]
 \end{proof}
-A garantia não exige conhecer a densidade inteira de $A\mid X$, apenas a média condicional da base $H$. Para $H(a,x)=a\,v(x)$, basta estimar $\E[A\mid X]$, pois $m_0(x)=v(x)\E[A\mid X=x]$. Em um experimento com alocação conhecida, essa média pode ser calculada exatamente pelo desenho.
+A garantia não exige conhecer a densidade inteira de $T\mid X$, apenas a média condicional da base $H$. Para $H(t,x)=t\,v(x)$, basta estimar $\E[T\mid X]$, pois $m_0(x)=v(x)\E[T\mid X=x]$. Em um experimento com alocação conhecida, essa média pode ser calculada exatamente pelo desenho.
 
 \begin{remark}[Dupla robustez não protege a forma do efeito]
 A Proposição~\ref{prop:dr} pressupõe que \eqref{eq:structural} seja verdadeira. Nem a especificação correta de $b$ nem a de $m$ corrige um modelo incorreto de $g$. Se a resposta relativa tiver curvatura omitida, a raiz pode ser uma projeção dependente da distribuição de doses, e não a elasticidade em uma taxa específica.
@@ -234,15 +234,15 @@ A Proposição~\ref{prop:dr} pressupõe que \eqref{eq:structural} seja verdadeir
 As derivadas de $\E\psi(O;\theta_0,b,m)$ nas direções de $b$ e $m$ são zero em $(b_0,m_0)$.
 \end{corollary}
 \begin{proof}
-Substitua $b=b_0+t h_b$ e $m=m_0+t h_m$ em \eqref{eq:product}. O resultado é $t^2\E[h_m(X)h_b(X)]$, cuja derivada em $t=0$ é zero. Variações separadas também têm derivada zero.
+Substitua $b=b_0+\epsilon h_b$ e $m=m_0+\epsilon h_m$ em \eqref{eq:product}. O resultado é $\epsilon^2\E[h_m(X)h_b(X)]$, cuja derivada em $\epsilon=0$ é zero. Variações separadas também têm derivada zero.
 \end{proof}
 O Jacobiano no ponto verdadeiro é
 \begin{equation}
 J_0=\partial_\theta\E\psi(O;\theta,b_0,m_0)\big|_{\theta_0}
-=-\E\left[b_0(X)\Cov\{H(A,X)\mid X\}\right].
+=-\E\left[b_0(X)\Cov\{H(T,X)\mid X\}\right].
 \label{eq:jac}
 \end{equation}
-Se $-J_0$ é definida positiva, há identificação local. Características de $H$ constantes em $A$ não são identificáveis por esse momento; por isso o intercepto de conversão está em $b_0$, não na base de dose. Baixa variação condicional da taxa ou conversão extremamente pequena enfraquece $J_0$ e aumenta a incerteza.
+Se $-J_0$ é definida positiva, há identificação local. Características de $H$ constantes em $T$ não são identificáveis por esse momento; por isso o intercepto de conversão está em $b_0$, não na base de dose. Baixa variação condicional da taxa ou conversão extremamente pequena enfraquece $J_0$ e aumenta a incerteza.
 
 \subsection{Cross-fitting e inferência de dimensão fixa}
 Particione a amostra em $K$ folds. Para cada fold $k$, estime $\hat b_{-k}$ e $\hat m_{-k}$ usando apenas os demais folds. Resolva
@@ -250,7 +250,7 @@ Particione a amostra em $K$ folds. Para cada fold $k$, estime $\hat b_{-k}$ e $\
 \frac1n\sum_{i=1}^n\psi(O_i;\hat\theta,\hat b_{-k(i)},\hat m_{-k(i)})=0.
 \label{eq:samplemoment}
 \end{equation}
-Pode-se estimar $b_0$ ajustando uma regressão flexível de $Y$ em $(A,X)$ e avaliando-a em $a_0(X)$. Outra alternativa é regressar $Y\exp\{-g_{\rm piloto}(A,X)\}$ em $X$, com um piloto consistente obtido em amostra independente ou por particionamento aninhado. A qualidade desse piloto integra o erro final de $\hat b$; ela não pode ser ignorada.
+Pode-se estimar $b_0$ ajustando uma regressão flexível de $Y$ em $(T,X)$ e avaliando-a em $t_0(X)$. Outra alternativa é regressar $Y\exp\{-g_{\rm piloto}(T,X)\}$ em $X$, com um piloto consistente obtido em amostra independente ou por particionamento aninhado. A qualidade desse piloto integra o erro final de $\hat b$; ela não pode ser ignorada.
 
 \begin{theorem}[Expansão DML para $d$ fixo]
 \label{prop:clt}
@@ -276,7 +276,7 @@ A matriz sandwich é estimada pelo Jacobiano e pela covariância dos scores fora
 \noindent\textbf{Consistência DR não é inferência DR.} A Proposição~\ref{prop:dr} admite uma nuisance persistentemente incorreta; a Proposição~\ref{prop:clt}, como enunciada, exige convergência de ambas. Se uma função permanece errada e a outra é aprendida lentamente, o drift pode ser de primeira ordem. Intervalos de confiança usuais não herdam automaticamente dupla robustez. Essa distinção é discutida por Dukes et al. \cite{dukes2024}.
 
 \subsection{Heterogeneidade flexível sem prometer uma taxa paramétrica}
-Pode-se definir $H(a,x)$ por uma base de dose interagida com características de $x$, ou usar pesos de vizinhança para resolver momentos condicionais. Em um regime de dimensão crescente, são necessárias condições adicionais de aproximação, complexidade, regularização e identificação. O presente teorema não cobre automaticamente uma rede neural arbitrária para $\theta(x)$, um forest adaptativo ou um número crescente de splines.
+Pode-se definir $H(t,x)$ por uma base de dose interagida com características de $x$, ou usar pesos de vizinhança para resolver momentos condicionais. Em um regime de dimensão crescente, são necessárias condições adicionais de aproximação, complexidade, regularização e identificação. O presente teorema não cobre automaticamente uma rede neural arbitrária para $\theta(x)$, um forest adaptativo ou um número crescente de splines.
 
 Uma implementação prudente começa com poucos termos de heterogeneidade e curvatura, testados fora da amostra. Um score de elasticidade pode ter poucos graus de liberdade mesmo quando as nuisances usam muitos atributos de crédito, veículo, prazo e cliente.
 
@@ -285,34 +285,34 @@ Uma implementação prudente começa com poucos termos de heterogeneidade e curv
 A restrição de forma em \eqref{eq:structural} pode ser forte. Uma alternativa é estimar a resposta a distribuições de doses explicitamente definidas, em vez da resposta a um ponto exato. Esse caminho conecta a perspectiva Q a intervenções estocásticas \cite{diaz2012} e a DML para respostas contínuas \cite{kennedy2017,colangelo2020}.
 
 \subsection{Alvos de política fixos}
-Sejam $\pi_j(a\mid x)$, $j\in\{0,1\}$, duas densidades de intervenção conhecidas e fixas em relação à distribuição observada. Podem ser pequenas janelas em torno de taxas de referência ou políticas com aleatorização controlada. Defina
+Sejam $\pi_j(t\mid x)$, $j\in\{0,1\}$, duas densidades de intervenção conhecidas e fixas em relação à distribuição observada. Podem ser pequenas janelas em torno de taxas de referência ou políticas com aleatorização controlada. Defina
 \begin{equation}
-\nu_j(x)=\int\pi_j(a\mid x)\mu(a,x)\,da,\qquad
+\nu_j(x)=\int\pi_j(u\mid x)\mu(u,x)\,du,\qquad
 R_\pi(x)=\frac{\nu_1(x)}{\nu_0(x)},\qquad
 \gamma_\pi(x)=\log R_\pi(x).
 \label{eq:policytargets}
 \end{equation}
-Exigimos $\nu_0(x)>0$ e suporte: $\pi_j(a\mid x)>0$ apenas onde $f(a\mid x)>0$. Para inferência regular, são necessárias razões $\pi_j/f$ suficientemente controladas e momentos finitos.
+Exigimos $\nu_0(x)>0$ e suporte: $\pi_j(t\mid x)>0$ apenas onde $f(t\mid x)>0$. Para inferência regular, são necessárias razões $\pi_j/f$ suficientemente controladas e momentos finitos.
 
 A identidade Q também identifica esses alvos:
 \begin{equation}
 R_\pi(x)=
-\frac{\int\pi_1(a\mid x)q(a\mid x)/f(a\mid x)\,da}
-     {\int\pi_0(a\mid x)q(a\mid x)/f(a\mid x)\,da}.
+\frac{\int\pi_1(u\mid x)q(u\mid x)/f(u\mid x)\,du}
+     {\int\pi_0(u\mid x)q(u\mid x)/f(u\mid x)\,du}.
 \label{eq:policyQ}
 \end{equation}
 O fator $p(x)$ cancela, mas o estimador plug-in dessa expressão continua não sendo DR por si só.
 
 \begin{remark}[Políticas dependentes de $f$]
-Uma política da forma $\pi_\delta(a\mid x)\propto e^{\delta a}f(a\mid x)$ depende da lei observada. As funções de influência abaixo não podem ser aplicadas a esse alvo simplesmente substituindo $\pi$ por $\hat\pi$; a dependência em $f$ introduz termos adicionais. Podemos tratar uma política aprendida em dados externos como fixa na avaliação, mas o alvo passa a ser o valor daquela política congelada.
+Uma política da forma $\pi_\delta(t\mid x)\propto e^{\delta t}f(t\mid x)$ depende da lei observada. As funções de influência abaixo não podem ser aplicadas a esse alvo simplesmente substituindo $\pi$ por $\hat\pi$; a dependência em $f$ introduz termos adicionais. Podemos tratar uma política aprendida em dados externos como fixa na avaliação, mas o alvo passa a ser o valor daquela política congelada.
 \end{remark}
 
 \subsection{Sinais aumentados e resto exato}
 Para estimativas fora da amostra $\hat\mu,\hat f$, defina
 \begin{equation}
 Z_j(O;\hat\mu,\hat f)=
-\underbrace{\int\pi_j(a\mid X)\hat\mu(a,X)\,da}_{\hat\nu_j^{\rm OR}(X)}
-+\frac{\pi_j(A\mid X)}{\hat f(A\mid X)}\{Y-\hat\mu(A,X)\}.
+\underbrace{\int\pi_j(u\mid X)\hat\mu(u,X)\,du}_{\hat\nu_j^{\rm OR}(X)}
++\frac{\pi_j(T\mid X)}{\hat f(T\mid X)}\{Y-\hat\mu(T,X)\}.
 \label{eq:Z}
 \end{equation}
 A integral pode ser calculada por quadratura unidimensional ou Monte Carlo. Seu erro numérico deve ser controlado em relação à precisão estatística desejada.
@@ -322,15 +322,15 @@ A integral pode ser calculada por quadratura unidimensional ou Monte Carlo. Seu 
 Tratando as funções treinadas como fixas,
 \begin{equation}
 \E[Z_j\mid X=x]-\nu_j(x)
-= B_j(x):=\int\pi_j(a\mid x)
-\left\{\frac{f(a\mid x)}{\hat f(a\mid x)}-1\right\}
-\{\mu(a,x)-\hat\mu(a,x)\}\,da.
+= B_j(x):=\int\pi_j(u\mid x)
+\left\{\frac{f(u\mid x)}{\hat f(u\mid x)}-1\right\}
+\{\mu(u,x)-\hat\mu(u,x)\}\,du.
 \label{eq:B}
 \end{equation}
 Logo o sinal tem esperança condicional correta se $\hat f=f$ ou se $\hat\mu=\mu$.
 \end{theorem}
 \begin{proof}
-Condicionar o termo residual de \eqref{eq:Z} em $(A,X)$ produz a integral de $\pi_j f/\hat f\,(\mu-\hat\mu)$. Subtrair $\nu_j$ e agrupar os termos de regressão produz \eqref{eq:B}.
+Condicionar o termo residual de \eqref{eq:Z} em $(T,X)$ produz a integral de $\pi_j f/\hat f\,(\mu-\hat\mu)$. Subtrair $\nu_j$ e agrupar os termos de regressão produz \eqref{eq:B}.
 \end{proof}
 Esse é um resto exato bilinear nos erros das nuisances. Não depende de uma aproximação de Taylor de uma razão.
 
@@ -381,7 +381,7 @@ Para políticas fixas, grupos com probabilidade positiva, denominadores afastado
 \label{sec:local}
 O estimador CQ-DML produz, sob a forma especificada,
 \[
-\hat s(a,x)=\hat\theta^{\mathsf T}\partial_a H(a,x).
+\hat s(t,x)=\hat\theta^{\mathsf T}\partial_t H(t,x).
 \]
 O Q-Learner de densidades produz \eqref{eq:qderiv}; estimar derivadas de duas densidades pode ser muito mais instável do que estimar um contraste finito. Uma alternativa operacional é a elasticidade secante entre duas taxas positivas:
 \begin{equation}
@@ -392,19 +392,19 @@ O Q-Learner de densidades produz \eqref{eq:qderiv}; estimar derivadas de duas de
 Ela é um alvo finito interpretável, mas não é necessariamente a derivada em $r_0$.
 
 \subsection{Suavização muda o alvo}
-Para um kernel simétrico $K$ de integral um, defina uma intervenção local $\pi_{a,h}(u)=K_h(u-a)$, no interior do suporte. Se $\mu(\cdot,x)$ é duas vezes diferenciável,
+Para um kernel simétrico $K$ de integral um, defina uma intervenção local $\pi_{t,h}(u)=K_h(u-t)$, no interior do suporte. Se $\mu(\cdot,x)$ é duas vezes diferenciável,
 \begin{equation}
-\nu_{a,h}(x)=\mu(a,x)+\frac{h^2\kappa_2}{2}\partial_a^2\mu(a,x)+o(h^2),
+\nu_{t,h}(x)=\mu(t,x)+\frac{h^2\kappa_2}{2}\partial_t^2\mu(t,x)+o(h^2),
 \quad\kappa_2=\int u^2K(u)\,du.
 \label{eq:biaslocal}
 \end{equation}
 Assim,
 \begin{align}
-\log\frac{\nu_{a,h}(x)}{\nu_{a_0,h}(x)}
--\log\frac{\mu(a,x)}{\mu(a_0,x)}
+\log\frac{\nu_{t,h}(x)}{\nu_{t_0,h}(x)}
+-\log\frac{\mu(t,x)}{\mu(t_0,x)}
 =\frac{h^2\kappa_2}{2}
-\left\{\frac{\mu''(a,x)}{\mu(a,x)}-
-\frac{\mu''(a_0,x)}{\mu(a_0,x)}\right\}+o(h^2).
+\left\{\frac{\mu''(t,x)}{\mu(t,x)}-
+\frac{\mu''(t_0,x)}{\mu(t_0,x)}\right\}+o(h^2).
 \label{eq:logkernelbias}
 \end{align}
 Perto de fronteiras, kernels truncados exigem correção e a expansão simétrica não é automaticamente válida.
@@ -414,12 +414,12 @@ No modelo não paramétrico, a resposta em uma dose pontual contínua não é em
 \section{Validação e aplicação ao financiamento de veículos}
 \label{sec:application}
 \subsection{Uma taxa numérica contínua não garante suporte contínuo}
-Se a oferta é $r=r_{\rm base}(X)\,c_T$, com $T$ pertencente a poucos braços, a taxa bruta pode ter milhares de valores na base. Entretanto, condicionalmente em $X$, existem apenas os poucos valores $r_{\rm base}(X)c_t$. Não há uma densidade contínua de alocação nesse desenho. Ajustar uma densidade artificial não identifica o efeito de uma taxa nunca oferecida a perfis comparáveis.
+Se a oferta é $r=r_{\rm base}(X)\,c_J$, com $J$ indicando um dos poucos braços de alocação, a taxa bruta pode ter milhares de valores na base. Entretanto, condicionalmente em $X$, existem apenas os poucos valores $r_{\rm base}(X)c_j$. Não há uma densidade contínua de alocação nesse desenho. Ajustar uma densidade artificial não identifica o efeito de uma taxa nunca oferecida a perfis comparáveis.
 
 Nesse caso, a identidade Q deve usar massas por braço. Um modelo suave pode interpolar doses, mas essa interpolação é uma hipótese de forma adicional. O momento multiplicativo da Seção~\ref{sec:dml} funciona também com tratamento discreto se sua matriz de identificação tem posto suficiente. Ele não elimina a dependência da interpolação em \eqref{eq:structural}. Uma curva não paramétrica contínua requer variação local de dose efetivamente sustentada pelos dados ou novas hipóteses de identificação.
 
 \subsection{O desenho empírico que distingue nível e forma}
-Um diagnóstico relevante compara três classes: uma curva relativa comum $g(a,x)=g_0(a)$; uma curva que depende apenas da propensão-base; e uma curva que utiliza heterogeneidade adicional em $X$. A seleção deve ocorrer fora da amostra, com doses ou políticas comparáveis entre perfis. Melhor desempenho de predição de conversão não demonstra, isoladamente, melhor aprendizado do efeito relativo.
+Um diagnóstico relevante compara três classes: uma curva relativa comum $g(t,x)=g_0(t)$; uma curva que depende apenas da propensão-base; e uma curva que utiliza heterogeneidade adicional em $X$. A seleção deve ocorrer fora da amostra, com doses ou políticas comparáveis entre perfis. Melhor desempenho de predição de conversão não demonstra, isoladamente, melhor aprendizado do efeito relativo.
 
 O score relativo não precisa ser descorrelacionado da propensão. A correlação pode ser verdadeira. O teste importante é se a informação adicional sobre a forma da curva se reproduz em dados de validação, e não se a correlação entre dois scores foi artificialmente removida.
 
@@ -436,9 +436,9 @@ Com $n$ oportunidades independentes, espera-se aproximadamente $0{,}06n$ convers
 A perda Q é ponderada por $p(X)$. Portanto, cancelar o baseline da identidade não garante precisão uniforme em segmentos de baixa conversão. Nem seis mil conversões em cem mil oportunidades são seis mil observações efetivas em cada faixa de dose e perfil. Informação local depende também da distribuição de taxa, overlap e heterogeneidade de $X$.
 
 \subsection{Compatibilidade probabilística e uso econômico}
-Uma forma $b(x)\exp g(a,x)$ deve satisfazer
+Uma forma $b(x)\exp g(t,x)$ deve satisfazer
 \begin{equation}
-0<b(x)\exp g(a,x)<1\quad\text{no domínio utilizado}.
+0<b(x)\exp g(t,x)<1\quad\text{no domínio utilizado}.
 \label{eq:constraint}
 \end{equation}
 A probabilidade média de 6\% não dispensa essa restrição. A literatura de modelos multiplicativos discute a dependência entre baseline e risco relativo \cite{yin2022}. No deployment, probabilidades inválidas devem ser tratadas por um modelo compatível ou restrição explícita. Clipping silencioso modifica previsões, alvos e garantias.
@@ -457,25 +457,25 @@ Usar particionamento por cliente e validação temporal; congelar previamente as
 \section{Verificação numérica reproduzível}
 \label{sec:simulation}
 \subsection{Desenho sintético}
-Foram executadas 100 replicações independentes de tamanho $n=30\,000$, com semente inicial 20260905. Geramos $X_1\in\{-1,+1\}$ equiprovável e $X_2\sim\operatorname{Unif}[-1,1]$, independentes. A dose $A\in[-1,1]$ segue
+Foram executadas 100 replicações independentes de tamanho $n=30\,000$, com semente inicial 20260905. Geramos $X_1\in\{-1,+1\}$ equiprovável e $X_2\sim\operatorname{Unif}[-1,1]$, independentes. A dose $T\in[-1,1]$ segue
 \begin{equation}
-f(a\mid x)=\frac{\exp\{\alpha(x)a\}}{2M\{\alpha(x)\}},\quad
+f(t\mid x)=\frac{\exp\{\alpha(x)t\}}{2M\{\alpha(x)\}},\quad
 \alpha(x)=0{,}9x_1+0{,}6x_2,\quad
 M(z)=\frac{\sinh z}{z},\ M(0)=1.
 \label{eq:simf}
 \end{equation}
 A conversão é Bernoulli com
 \begin{equation}
-\mu(a,x)=c\exp(1{,}1x_1+0{,}7x_2)
-\exp\{a(-0{,}35-0{,}20x_1)\}.
+\mu(t,x)=c\exp(1{,}1x_1+0{,}7x_2)
+\exp\{t(-0{,}35-0{,}20x_1)\}.
 \label{eq:simmu}
 \end{equation}
-O fator $c=0{,}037104282322969306$ foi calibrado por quadratura para obter $\E[Y]=0{,}06$. A conversão-base em $a=0$ varia aproximadamente de 0,61\% a 22,45\%. As probabilidades são verificadas pelo código e permanecem em $(0,1)$ em todo o suporte deste desenho.
+O fator $c=0{,}037104282322969306$ foi calibrado por quadratura para obter $\E[Y]=0{,}06$. A conversão-base em $t=0$ varia aproximadamente de 0,61\% a 22,45\%. As probabilidades são verificadas pelo código e permanecem em $(0,1)$ em todo o suporte deste desenho.
 
-A heterogeneidade relativa verdadeira é $\theta_1=-0{,}20$; o termo comum é $\theta_0=-0{,}35$. Como $f$ é exponencialmente inclinada e $\mu$ é log-linear em $a$, a densidade entre conversores tem inclinação $\alpha(x)+\theta_0+\theta_1x_1$. Isso permite ajustar o Q-Learner por verossimilhança sem erro de integração.
+A heterogeneidade relativa verdadeira é $\theta_1=-0{,}20$; o termo comum é $\theta_0=-0{,}35$. Como $f$ é exponencialmente inclinada e $\mu$ é log-linear em $t$, a densidade entre conversores tem inclinação $\alpha(x)+\theta_0+\theta_1x_1$. Isso permite ajustar o Q-Learner por verossimilhança sem erro de integração.
 
 \subsection{O que a comparação testa}
-O primeiro experimento fixa as nuisances na verdade ou em funções deliberadamente incorretas. No CQ-DML, usamos $b=b_0$ ou $b\equiv0{,}06$, e $m_A=\E[A\mid X]$ ou $m_A\equiv0$. No Q-Learner, usamos a densidade correta ou uma uniforme em $[-1,1]$. Essas condições isolam a identidade de robustez; não representam a dificuldade completa de aprender funções desconhecidas.
+O primeiro experimento fixa as nuisances na verdade ou em funções deliberadamente incorretas. No CQ-DML, usamos $b=b_0$ ou $b\equiv0{,}06$, e $m_T=\E[T\mid X]$ ou $m_T\equiv0$. No Q-Learner, usamos a densidade correta ou uma uniforme em $[-1,1]$. Essas condições isolam a identidade de robustez; não representam a dificuldade completa de aprender funções desconhecidas.
 
 A Tabela~\ref{tab:mc} resume o coeficiente de heterogeneidade. Viés é a média estimada menos $-0{,}20$; RMSE é a raiz do erro quadrático médio. A cobertura usa intervalos Wald nominais de 95\%, com nuisances \emph{fixas} neste experimento. Não testa cobertura DR com nuisances aprendidas e persistentemente erradas.
 
@@ -509,14 +509,14 @@ Os resultados são compatíveis com a dupla robustez do momento. Quando ambas as
 \end{figure}
 
 \subsection{Uma execução com nuisances aprendidas}
-Uma realização adicional, com semente 20260906, utilizou $n=100\,000$ e três folds. Um regressor de gradient boosting estimou $\E[A\mid X]$. Um classificador de gradient boosting estimou $\mu(a,x)$, avaliado em $a=0$ para produzir $\hat b$. A função de efeito manteve apenas os dois coeficientes especificados em \eqref{eq:simmu}.
+Uma realização adicional, com semente 20260906, utilizou $n=100\,000$ e três folds. Um regressor de gradient boosting estimou $\E[T\mid X]$. Um classificador de gradient boosting estimou $\mu(t,x)$, avaliado em $t=0$ para produzir $\hat b$. A função de efeito manteve apenas os dois coeficientes especificados em \eqref{eq:simmu}.
 
 Obtivemos
 \[
 \hat\theta_0=-0{,}3422\quad (\mathrm{EP}=0{,}0352),\qquad
 \hat\theta_1=-0{,}1938\quad (\mathrm{EP}=0{,}0352).
 \]
-Os intervalos Wald de 95\% foram $[-0{,}4112,-0{,}2731]$ e $[-0{,}2629,-0{,}1248]$. A conversão observada nessa realização foi 6,137\%. Os RMSEs das nuisances em relação à verdade sintética foram 0,0101 para $b$ e 0,0177 para $\E[A\mid X]$. A norma do momento final foi inferior a $4\times10^{-18}$ e o número de condição do Jacobiano foi 7,61.
+Os intervalos Wald de 95\% foram $[-0{,}4112,-0{,}2731]$ e $[-0{,}2629,-0{,}1248]$. A conversão observada nessa realização foi 6,137\%. Os RMSEs das nuisances em relação à verdade sintética foram 0,0101 para $b$ e 0,0177 para $\E[T\mid X]$. A norma do momento final foi inferior a $4\times10^{-18}$ e o número de condição do Jacobiano foi 7,61.
 
 Essa execução verifica a implementação com previsões fora da amostra; um único conjunto de dados não demonstra cobertura, superioridade ou robustez a mudanças de população.
 
@@ -561,16 +561,16 @@ Por exemplo, com $(u_0,v_0)=(0{,}2,0{,}1)$ e $(\hat u,\hat v)=(0{,}3,0{,}2)$, o 
 
 \section{A restrição log-linear sob misspecificação}
 \label{app:misspec}
-Se a verdadeira resposta é $\mu(a,x)=b_0(x)e^{g_0(a,x)}$, mas o estimador usa $g_\theta=\theta^{\mathsf T}H$, o momento com $m=m_0$ passa a ter esperança
+Se a verdadeira resposta é $\mu(t,x)=b_0(x)e^{g_0(t,x)}$, mas o estimador usa $g_\theta=\theta^{\mathsf T}H$, o momento com $m=m_0$ passa a ter esperança
 \[
-\E\left[(H-m_0)b_0(X)e^{g_0(A,X)-g_\theta(A,X)}\right].
+\E\left[(H-m_0)b_0(X)e^{g_0(T,X)-g_\theta(T,X)}\right].
 \]
-O termo envolvendo a nuisance $b$ ainda cancela pela centralização, mas a raiz depende de toda a distribuição de $(A,X)$ e da discrepância de forma. Não há uma razão para igualá-la à derivada local de $g_0$ em uma dose específica. Esse é o motivo para validar curvatura ou usar o alvo estocástico não paramétrico.
+O termo envolvendo a nuisance $b$ ainda cancela pela centralização, mas a raiz depende de toda a distribuição de $(T,X)$ e da discrepância de forma. Não há uma razão para igualá-la à derivada local de $g_0$ em uma dose específica. Esse é o motivo para validar curvatura ou usar o alvo estocástico não paramétrico.
 
 \section{Detalhes da densidade sintética e da reprodução}
 A função $M(z)=\sinh(z)/z$ é a função geradora de momentos de uma uniforme em $[-1,1]$. A média sob inclinação $z$ é
 \[
-\E[A\mid z]=\frac{d}{dz}\log M(z)=\coth z-\frac1z,
+\E[T\mid z]=\frac{d}{dz}\log M(z)=\coth z-\frac1z,
 \]
 com extensão contínua zero em $z=0$. A variância é $1/z^2-1/\sinh^2z$, com limite $1/3$. O código usa expansões em série perto de zero para estabilidade numérica.
 

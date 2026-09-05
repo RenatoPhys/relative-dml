@@ -40,7 +40,7 @@ def flat_lift_example(results, figures):
     cells['n'] = 200
     cells['mu0'] = cells.cate / cells.lift
     cells['mu1'] = cells.mu0 + cells.cate
-    # Oracle conversion prediction without A, under randomized 50/50 treatment.
+    # Oracle conversion prediction without T, under randomized 50/50 treatment.
     cells['conversion'] = (cells.mu0 + cells.mu1) / 2
     # Same response curve, with a randomized uniform dose on [0, 1].
     cells['conversion_uniform'] = cells.cate / np.log1p(cells.lift)

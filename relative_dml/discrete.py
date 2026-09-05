@@ -9,7 +9,7 @@ from ._utils import features, training_data, learner, probability, check_clip
 
 
 class DiscreteQLearner(BaseEstimator):
-    """Q identity: (q_a / e_a) / (q_ref / e_ref), where q uses converters.
+    """Q identity: (q_t / e_t) / (q_ref / e_ref), where q uses converters.
 
     Models must be cloneable probabilistic classifiers. Treatments may be
     numeric or string labels. This plug-in estimator is not doubly robust.
@@ -21,17 +21,17 @@ class DiscreteQLearner(BaseEstimator):
         self.clip = clip
         self.random_state = random_state
 
-    def fit(self, X, a, y):
-        X, a, y = training_data(X, a, y)
+    def fit(self, X, t, y):
+        X, t, y = training_data(X, t, y)
         check_clip(self.clip)
-        self.classes_ = np.unique(a)
-        if len(self.classes_) < 2 or not np.array_equal(np.unique(a[y == 1]), self.classes_):
+        self.classes_ = np.unique(t)
+        if len(self.classes_) < 2 or not np.array_equal(np.unique(t[y == 1]), self.classes_):
             raise ValueError('Need at least two treatment arms and converters in every arm.')
         self.n_features_in_ = X.shape[1]
         self.propensity_model_ = learner(self.propensity_model, True, self.random_state)
         self.converter_model_ = learner(self.converter_model, True, self.random_state)
-        self.propensity_model_.fit(X, a)
-        self.converter_model_.fit(X[y == 1], a[y == 1])
+        self.propensity_model_.fit(X, t)
+        self.converter_model_.fit(X[y == 1], t[y == 1])
         return self
 
     def predict_ratio(self, X, treatment, reference):
@@ -71,10 +71,10 @@ class DiscreteDML(BaseEstimator):
         self.clip = clip
         self.random_state = random_state
 
-    def fit(self, X, a, y):
-        X, a, y = training_data(X, a, y)
+    def fit(self, X, t, y):
+        X, t, y = training_data(X, t, y)
         check_clip(self.clip)
-        self.classes_, encoded = np.unique(a, return_inverse=True)
+        self.classes_, encoded = np.unique(t, return_inverse=True)
         strata = 2 * encoded + y.astype(int)
         counts = np.bincount(strata, minlength=2 * len(self.classes_))
         if len(self.classes_) < 2 or self.n_splits < 2 or counts.min() < self.n_splits:
@@ -87,16 +87,16 @@ class DiscreteDML(BaseEstimator):
         for fold, (tr, te) in enumerate(folds.split(X, strata)):
             self.fold_ids_[te] = fold
             prop = learner(self.propensity_model, True, self.random_state)
-            prop.fit(X[tr], a[tr])
+            prop.fit(X[tr], t[tr])
             for j, arm in enumerate(self.classes_):
-                rows = tr[a[tr] == arm]
+                rows = tr[t[tr] == arm]
                 outcome = learner(self.outcome_model, True, self.random_state)
                 outcome.fit(X[rows], y[rows])
                 mu = probability(outcome, X[te])
                 e = probability(prop, X[te], arm)
                 clipped += np.count_nonzero(e < self.clip)
                 self.pseudo_outcomes_[te, j] = _aipw(
-                    y[te], a[te] == arm, mu, np.maximum(e, self.clip))
+                    y[te], t[te] == arm, mu, np.maximum(e, self.clip))
         self.propensity_clip_fraction_ = clipped / self.pseudo_outcomes_.size
         if clipped:
             warnings.warn('Out-of-fold propensities clipped; inspect propensity_clip_fraction_.',

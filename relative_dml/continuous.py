@@ -12,7 +12,7 @@ from ._moment import fit_multiplicative_dml
 class ContinuousQLearner(BaseEstimator):
     """Joint density-ratio classification of converters versus all records.
 
-    The balanced source-class odds equal mu(a,x)/P(Y=1); their ratio at two
+    The balanced source-class odds equal mu(t,x)/P(Y=1); their ratio at two
     doses cancels the marginal prevalence. This is a plug-in Q construction,
     closely related to an S-learner; it has no DR or efficiency guarantee.
     The classifier must support sample_weight. Positive records appear in
@@ -23,15 +23,15 @@ class ContinuousQLearner(BaseEstimator):
         self.clip = clip
         self.random_state = random_state
 
-    def fit(self, X, a, y):
-        X, a, y = training_data(X, a, y)
-        a = np.asarray(a, float)
+    def fit(self, X, t, y):
+        X, t, y = training_data(X, t, y)
+        t = np.asarray(t, float)
         check_clip(self.clip)
-        self.dose_range_ = (a.min(), a.max())
-        if not np.isfinite(a).all() or self.dose_range_[0] == self.dose_range_[1]:
+        self.dose_range_ = (t.min(), t.max())
+        if not np.isfinite(t).all() or self.dose_range_[0] == self.dose_range_[1]:
             raise ValueError('Continuous treatment must be finite and vary.')
         self.n_features_in_ = X.shape[1]
-        design = np.column_stack([X, a])
+        design = np.column_stack([X, t])
         converters = design[y == 1]
         n, nc = len(X), len(converters)
         # Equal total source weights; mean sample weight one preserves the
@@ -47,8 +47,8 @@ class ContinuousQLearner(BaseEstimator):
         check_is_fitted(self, 'classifier_')
         X = features(X, self.n_features_in_)
         def log_odds(value):
-            a = dose(value, len(X), self.dose_range_)
-            p = probability(self.classifier_, np.column_stack([X, a]))
+            t = dose(value, len(X), self.dose_range_)
+            p = probability(self.classifier_, np.column_stack([X, t]))
             if np.any((p < self.clip) | (p > 1 - self.clip)):
                 warnings.warn('Source-class probability clipped; inspect ratio stability.',
                               RuntimeWarning, stacklevel=2)
@@ -60,7 +60,7 @@ class ContinuousQLearner(BaseEstimator):
 
 
 class ContinuousDML(BaseEstimator):
-    """Cross-fitted mu(a,x)=b(x)*exp((a-reference_dose)*[1,V(x)]@coef).
+    """Cross-fitted mu(t,x)=b(x)*exp((t-reference_dose)*[1,V(x)]@coef).
 
     X contains confounders; effect_features contains prespecified effect
     modifiers. Omit effect_features for a common relative slope. The slope
@@ -87,12 +87,12 @@ class ContinuousDML(BaseEstimator):
             raise ValueError('effect_features must have one row per observation.')
         return np.column_stack([np.ones(len(X)), V])
 
-    def fit(self, X, a, y, effect_features=None):
-        X, a, y = training_data(X, a, y)
-        a = np.asarray(a, float)
-        self.dose_range_ = (a.min(), a.max())
+    def fit(self, X, t, y, effect_features=None):
+        X, t, y = training_data(X, t, y)
+        t = np.asarray(t, float)
+        self.dose_range_ = (t.min(), t.max())
         dose(self.reference_dose, len(X), self.dose_range_)
-        if not np.isfinite(a).all() or self.dose_range_[0] == self.dose_range_[1]:
+        if not np.isfinite(t).all() or self.dose_range_[0] == self.dose_range_[1]:
             raise ValueError('Treatment must be finite and vary.')
         if self.n_splits < 2 or np.bincount(y.astype(int)).min() < self.n_splits:
             raise ValueError('Need n_splits >= 2 and at least n_splits events and non-events.')
@@ -106,14 +106,14 @@ class ContinuousDML(BaseEstimator):
         for fold, (tr, te) in enumerate(folds.split(X, y)):
             self.fold_ids_[te] = fold
             treatment = learner(self.treatment_model, False, self.random_state)
-            treatment.fit(X[tr], a[tr])
+            treatment.fit(X[tr], t[tr])
             self.treatment_mean_oof_[te] = treatment.predict(X[te])
             outcome = learner(self.outcome_model, True, self.random_state)
-            outcome.fit(np.column_stack([X[tr], a[tr]]), y[tr])
+            outcome.fit(np.column_stack([X[tr], t[tr]]), y[tr])
             at_reference = np.column_stack([X[te], np.full(len(te), self.reference_dose)])
             self.baseline_oof_[te] = probability(outcome, at_reference)
         self.estimate_ = fit_multiplicative_dml(
-            a - self.reference_dose, y, V, self.baseline_oof_,
+            t - self.reference_dose, y, V, self.baseline_oof_,
             self.treatment_mean_oof_ - self.reference_dose)
         self.coef_ = np.asarray(self.estimate_.theta)
         self.se_ = np.asarray(self.estimate_.se)
@@ -126,10 +126,10 @@ class ContinuousDML(BaseEstimator):
 
     def predict_ratio(self, X, treatment, reference, effect_features=None):
         slope = self.predict_slope(X, effect_features)
-        a = dose(treatment, len(slope), self.dose_range_)
-        a0 = dose(reference, len(slope), self.dose_range_)
+        t = dose(treatment, len(slope), self.dose_range_)
+        t0 = dose(reference, len(slope), self.dose_range_)
         with np.errstate(over='raise', invalid='raise'):
-            return np.exp((a - a0) * slope)
+            return np.exp((t - t0) * slope)
 
     def predict_lift(self, X, treatment, reference, effect_features=None):
         return self.predict_ratio(X, treatment, reference, effect_features) - 1

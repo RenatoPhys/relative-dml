@@ -3,9 +3,9 @@
 \subsection{Implementação pragmática e estimandos}
 O pacote instalável \texttt{relative-dml}, versão 0.1.0, contém quatro classes. A interface comum usa \texttt{fit}, \texttt{predict\_ratio} e \texttt{predict\_lift}. Fixamos a convenção $\operatorname{lift}=R-1$; por exemplo, $R=1{,}2$ corresponde a lift de 20\%, não a 20 pontos percentuais. As covariáveis devem ser numéricas, finitas e anteriores ao tratamento. A primeira versão considera observações i.i.d.; não implementa inferência por clusters nem uma rotina de otimização comercial.
 
-\texttt{DiscreteQLearner} aplica a identidade multiclasses de \cite{fuchs2026}, ajustando probabilidades de braço na população completa e entre conversores. \texttt{DiscreteDML} estima médias aumentadas por braço. Para $e_j(x)=\Pp(A=j\mid X=x)$, constrói fora do fold
+\texttt{DiscreteQLearner} aplica a identidade multiclasses de \cite{fuchs2026}, ajustando probabilidades de braço na população completa e entre conversores. \texttt{DiscreteDML} estima médias aumentadas por braço. Para $e_j(x)=\Pp(T=j\mid X=x)$, constrói fora do fold
 \[
-Z_j=\hat\mu_j(X)+\frac{\ind(A=j)}{\hat e_j(X)}\{Y-\hat\mu_j(X)\}.
+Z_j=\hat\mu_j(X)+\frac{\ind(T=j)}{\hat e_j(X)}\{Y-\hat\mu_j(X)\}.
 \]
 O resto exato é
 \[
@@ -14,43 +14,43 @@ O resto exato é
 \]
 Cada sinal é regressado em $X$; só então formamos a razão das duas médias estimadas. A consistência da razão depende também da consistência das regressões finais e da positividade do denominador. Não dividimos sinais individuais nem cortamos seus valores negativos. Essa opção implementa a alternativa simples discutida após \eqref{eq:relloss}, sem atribuir dupla robustez exata à correção de Taylor do Apêndice~\ref{app:ratio}.
 
-\texttt{ContinuousDML} encapsula o momento já utilizado em \texttt{experiments.py}, com três folds estratificados pelo outcome. A nuisance de baseline é uma classificação de $Y$ em $(X,A)$ avaliada na dose de referência; a média da dose é uma regressão de $A$ em $X$. A base implementada é $(a-a_{\rm ref})[1,V(x)]$, com modificadores $V$ pré-especificados e derivados de $X$. Sem modificadores, há apenas uma inclinação comum. A API não implementa as bases de splines nem o aprendiz de políticas estocásticas discutidos na teoria. Os erros-padrão dos coeficientes mantêm as condições de inferência da Seção~\ref{sec:dml}.
+\texttt{ContinuousDML} encapsula o momento já utilizado em \texttt{experiments.py}, com três folds estratificados pelo outcome. A nuisance de baseline é uma classificação de $Y$ em $(X,T)$ avaliada na dose de referência; a média da dose é uma regressão de $T$ em $X$. A base implementada é $(t-t_{\rm ref})[1,V(x)]$, com modificadores $V$ pré-especificados e derivados de $X$. Sem modificadores, há apenas uma inclinação comum. A API não implementa as bases de splines nem o aprendiz de políticas estocásticas discutidos na teoria. Os erros-padrão dos coeficientes mantêm as condições de inferência da Seção~\ref{sec:dml}.
 
 \subsection{Q contínuo por classificação de origens conjuntas}
-\texttt{ContinuousQLearner} implementa uma variante simples da classificação de razões de densidade. Construímos uma origem $S=1$ com $(X,A)$ dos conversores e uma origem $S=0$ com $(X,A)$ da população completa. As origens recebem o mesmo peso total. Se $D(x,a)=\Pp(S=1\mid X=x,A=a)$ nessa mistura, então
+\texttt{ContinuousQLearner} implementa uma variante simples da classificação de razões de densidade. Construímos uma origem $S=1$ com $(X,T)$ dos conversores e uma origem $S=0$ com $(X,T)$ da população completa. As origens recebem o mesmo peso total. Se $D(x,t)=\Pp(S=1\mid X=x,T=t)$ nessa mistura, então
 \[
-\frac{D(x,a)}{1-D(x,a)}
-=\frac{f_{X,A\mid Y=1}(x,a)}{f_{X,A}(x,a)}
-=\frac{\mu(a,x)}{\Pp(Y=1)}.
+\frac{D(x,t)}{1-D(x,t)}
+=\frac{f_{X,T\mid Y=1}(x,t)}{f_{X,T}(x,t)}
+=\frac{\mu(t,x)}{\Pp(Y=1)}.
 \]
-Portanto, $\logit D(x,a)-\logit D(x,a_0)=\log R(a,a_0;x)$. A referência conjunta mantém a distribuição de alocação observada; a comparação de doses mantém $X$ fixo. Não é necessário simular doses de uma densidade condicional ajustada. O classificador recebe os registros positivos com peso $(n+n_1)/(2n_1)$ e todos os registros com peso $(n+n_1)/(2n)$, onde $n_1=\sum_iY_i$.
+Portanto, $\logit D(x,t)-\logit D(x,t_0)=\log R(t,t_0;x)$. A referência conjunta mantém a distribuição de alocação observada; a comparação de doses mantém $X$ fixo. Não é necessário simular doses de uma densidade condicional ajustada. O classificador recebe os registros positivos com peso $(n+n_1)/(2n_1)$ e todos os registros com peso $(n+n_1)/(2n)$, onde $n_1=\sum_iY_i$.
 
 Conversores aparecem nas duas origens e não se tornam observações independentes adicionais. Uma eventual validação para tuning deve dividir os registros originais antes dessa duplicação. Esta é uma construção plug-in próxima de um S-learner: não há garantia DR nem alegação de vantagem estatística sobre regressão direta de outcome. Ela difere do Q de inclinação exponencial com densidade pré-fixada do primeiro Monte Carlo. Nas tabelas seguintes, ``Q'' designa a implementação discreta ou contínua correspondente ao cenário.
 
 \subsection{Desenhos, protocolo e escolha do estágio final}
 Mantemos $X_1\in\{-1,+1\}$ e $X_2\sim\operatorname{Unif}[-1,1]$, independentes. Nos novos desenhos,
 \begin{equation}
-\mu(a,x)=B\exp(0{,}65x_1+0{,}4x_2)
-\exp\{a(\beta_0+\beta_1x_1)+\kappa a^2\}.
+\mu(t,x)=B\exp(0{,}65x_1+0{,}4x_2)
+\exp\{t(\beta_0+\beta_1x_1)+\kappa t^2\}.
 \label{eq:package-dgp}
 \end{equation}
-O padrão é $B=0{,}04$, $(\beta_0,\beta_1)=(-0{,}35,-0{,}20)$ e $\kappa=0$. No caso contínuo, usamos a densidade de \eqref{eq:simf}, agora com $\alpha(x)=c(0{,}9x_1+0{,}6x_2)$ e $c=1$. No discreto, $\Pp(A=j\mid X=x)=\exp\{j\alpha(x)\}/\sum_{\ell=0}^{K-1}\exp\{\ell\alpha(x)\}$, com braços $j=0,\ldots,K-1$.
+O padrão é $B=0{,}04$, $(\beta_0,\beta_1)=(-0{,}35,-0{,}20)$ e $\kappa=0$. No caso contínuo, usamos a densidade de \eqref{eq:simf}, agora com $\alpha(x)=c(0{,}9x_1+0{,}6x_2)$ e $c=1$. No discreto, $\Pp(T=j\mid X=x)=\exp\{j\alpha(x)\}/\sum_{\ell=0}^{K-1}\exp\{\ell\alpha(x)\}$, com braços $j=0,\ldots,K-1$.
 
 Os seis casos contínuos são: efeito nulo ($\beta_0=\beta_1=0$); efeito comum ($\beta_1=0$); heterogêneo (padrão); conversão rara ($B=0{,}008$); pouco overlap ($c=4$); e curva omitida ($\kappa=0{,}8$). Os quatro discretos são: binário aleatorizado ($K=2,c=0$); binário confundido ($K=2,c=1$); três braços ($K=3,c=1$); e binário raro ($K=2,c=1,B=0{,}008$). As probabilidades de \eqref{eq:package-dgp} permanecem em $(0,1)$ nos suportes utilizados; o código também verifica essa condição em cada amostra. A conversão marginal varia por cenário, e não foi fixada em 6\%.
 
-Comparamos Q, DML e um S-learner de conversão em $(X,A)$. As classificações e regressões de nuisance usam histogram gradient boosting com 100 iterações, taxa de aprendizagem 0,1, até oito folhas, pelo menos 50 registros por folha e regularização $L_2=2$. Desativamos early stopping para manter o protocolo explícito. No DML contínuo, $V(x)=x_1$ em todos os casos, inclusive nos efeitos nulo e comum; o ajuste não recebe antecipadamente a informação de que a heterogeneidade é zero. A forma relativa linear favorece esse estimador quando é correta, enquanto Q e S usam classes flexíveis: esta comparação não isola exclusivamente o benefício da ortogonalidade.
+Comparamos Q, DML e um S-learner de conversão em $(X,T)$. As classificações e regressões de nuisance usam histogram gradient boosting com 100 iterações, taxa de aprendizagem 0,1, até oito folhas, pelo menos 50 registros por folha e regularização $L_2=2$. Desativamos early stopping para manter o protocolo explícito. No DML contínuo, $V(x)=x_1$ em todos os casos, inclusive nos efeitos nulo e comum; o ajuste não recebe antecipadamente a informação de que a heterogeneidade é zero. A forma relativa linear favorece esse estimador quando é correta, enquanto Q e S usam classes flexíveis: esta comparação não isola exclusivamente o benefício da ortogonalidade.
 
 Uma rodada piloto de 30 replicações por cenário, semente 20260906, revelou instabilidade na regressão final discreta quando utilizava os mesmos parâmetros das nuisances: houve clipping em todas as 30 replicações de cada caso discreto. Os resultados completos dessa rodada foram preservados em \texttt{results/pilot}. Em resposta, fixamos apenas para o estágio final do DML discreto 30 iterações, taxa de aprendizagem 0,05, até quatro folhas, mínimo de 200 registros por folha e $L_2=10$. Isso regulariza sinais AIPW ruidosos sem substituir o estimando ou truncar os sinais individuais. Os demais modelos ficaram fixos.
 
-A avaliação principal abaixo usa novas sementes, com base 20270906. Para cada cenário e replicação, geramos $n=12\,000$ registros de treino e outros $n_{\rm test}=2\,000$ independentes para avaliação; são 30 replicações por cenário e 900 ajustes, além dos 900 ajustes do piloto. A API de DML usa três folds. No contínuo, avaliamos $a\in\{-0{,}8,-0{,}4,0{,}4,0{,}8\}$ contra zero; no discreto, cada braço não controle contra o braço zero. A verdade é calculada diretamente por \eqref{eq:package-dgp}. Novas sementes separam a avaliação dos dados usados para alterar o estágio final, mas os dez desenhos continuam sendo os mesmos; não se trata de seleção cega de desenhos ou benchmark exaustivo.
+A avaliação principal abaixo usa novas sementes, com base 20270906. Para cada cenário e replicação, geramos $n=12\,000$ registros de treino e outros $n_{\rm test}=2\,000$ independentes para avaliação; são 30 replicações por cenário e 900 ajustes, além dos 900 ajustes do piloto. A API de DML usa três folds. No contínuo, avaliamos $t\in\{-0{,}8,-0{,}4,0{,}4,0{,}8\}$ contra zero; no discreto, cada braço não controle contra o braço zero. A verdade é calculada diretamente por \eqref{eq:package-dgp}. Novas sementes separam a avaliação dos dados usados para alterar o estágio final, mas os dez desenhos continuam sendo os mesmos; não se trata de seleção cega de desenhos ou benchmark exaustivo.
 
 \subsection{Métricas e resultados executados}
 A métrica principal por replicação é
 \[
 \operatorname{RMSE}_{\log R}
 =\left\{\frac{1}{n_{\rm test}|\mathcal C|}
-\sum_{i=1}^{n_{\rm test}}\sum_{a\in\mathcal C}
-\big[\log\widehat R(a,0;X_i)-\log R(a,0;X_i)\big]^2\right\}^{1/2}.
+\sum_{i=1}^{n_{\rm test}}\sum_{t\in\mathcal C}
+\big[\log\widehat R(t,0;X_i)-\log R(t,0;X_i)\big]^2\right\}^{1/2}.
 \]
 Reportamos a média dessa métrica entre replicações; seu erro Monte Carlo é o desvio-padrão das 30 métricas dividido por $\sqrt{30}$. A segunda métrica é o erro absoluto médio do lift, $\E_{\rm teste}|\widehat R-R|$, também calculado por replicação. Um erro de 0,1 corresponde a dez pontos percentuais \emph{na escala do lift relativo}, não na probabilidade de conversão. Os arquivos brutos incluem ainda viés médio do lift, correlação de Spearman na maior dose comparada, contagem de conversores e mensagens de falha e clipping. Spearman fica indefinida para efeito verdadeiro constante.
 

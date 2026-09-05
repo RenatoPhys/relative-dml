@@ -4,7 +4,7 @@ Pacote Python inicial para **outcome binário** e efeitos relativos com tratamen
 
 [Paper em PDF](continuous_q_paper/paper.pdf) · [Código dos exemplos por quintil](continuous_q_paper/quantile_examples.py)
 
-**Convenção:** `ratio = P(Y(a)=1 | X) / P(Y(a0)=1 | X)` e `lift = ratio - 1`. Um lift de `0.20` significa aumento relativo de 20%; não significa 20 pontos percentuais. Todas as previsões retornam um vetor por indivíduo. Não são probabilidades individuais de benefício.
+**Convenção:** `T` representa o tratamento, `t` seu valor e `t0` o valor de referência: `ratio = P(Y(t)=1 | X) / P(Y(t0)=1 | X)` e `lift = ratio - 1`. Um lift de `0.20` significa aumento relativo de 20%; não significa 20 pontos percentuais. Todas as previsões retornam um vetor por indivíduo. Não são probabilidades individuais de benefício.
 
 ## Instalação local
 
@@ -36,11 +36,11 @@ Para começar no caso contínuo, use `ContinuousDML` se uma inclinação relativ
 from relative_dml import ContinuousDML
 
 # X: matriz numérica (n, p), com confundidores anteriores ao tratamento.
-# a: vetor da dose; y: vetor com 0/1.
+# t: vetor da dose; y: vetor com 0/1.
 # V deve conter modificadores pré-especificados, derivados de X, sem intercepto.
 V = X[:, :1]
 model = ContinuousDML(n_splits=3, reference_dose=0, random_state=42)
-model.fit(X, a, y, effect_features=V)
+model.fit(X, t, y, effect_features=V)
 
 ratio = model.predict_ratio(X_new, treatment=0.5, reference=0,
                             effect_features=X_new[:, :1])
@@ -50,11 +50,11 @@ slope = model.predict_slope(X_new, effect_features=X_new[:, :1])
 print(model.coef_, model.se_)
 ```
 
-O modelo é `mu(a,x) = b(x) * exp((a-reference_dose) * [1,V(x)] @ coef_)`. O intercepto do **efeito** é adicionado automaticamente. Sem `effect_features`, o ajuste tem apenas uma inclinação relativa comum. O conjunto completo de confundidores continua em `X`. Use as mesmas transformações e ordem das colunas em treino e previsão.
+O modelo é `mu(t,x) = b(x) * exp((t-reference_dose) * [1,V(x)] @ coef_)`. O intercepto do **efeito** é adicionado automaticamente. Sem `effect_features`, o ajuste tem apenas uma inclinação relativa comum. O conjunto completo de confundidores continua em `X`. Use as mesmas transformações e ordem das colunas em treino e previsão.
 
 `treatment` e `reference` podem ser escalares ou vetores de tamanho igual ao número de linhas. `reference_dose` é a referência escalar usada para treinar a nuisance de baseline; as doses comparadas em previsão podem ser outras. As doses são verificadas contra o intervalo global observado, mas isso **não verifica suporte condicional** em cada perfil.
 
-`predict_slope` é a derivada de **log-risco**, por unidade de `a`. É elasticidade em relação ao preço somente quando `a` é log-preço ou log-variação de preço. Padronizações adicionais mudam a unidade.
+`predict_slope` é a derivada de **log-risco**, por unidade de `t`. É elasticidade em relação ao preço somente quando `t` é log-preço ou log-variação de preço. Padronizações adicionais mudam a unidade.
 
 As nuisances são treinadas em três folds por padrão, usando histogram gradient boosting. É possível passar `outcome_model` (classificador com `predict_proba`) e `treatment_model` (regressor com `predict`), compatíveis com `sklearn.base.clone`. `baseline_oof_`, `treatment_mean_oof_`, `fold_ids_` e `estimate_` permitem inspecionar o ajuste. `se_` fornece o sandwich i.i.d. do manuscrito, sob a interseção e taxas DML; não há intervalos automaticamente válidos sob misspecificação persistente de nuisance.
 
@@ -65,18 +65,18 @@ O wrapper implementa apenas a base linear na dose. A discussão teórica de spli
 ```python
 from relative_dml import DiscreteQLearner, DiscreteDML
 
-# a contém rótulos de braços, incluindo strings; não são doses interpoladas.
-model = DiscreteDML(random_state=42).fit(X, a, y)
+# t contém rótulos de braços, incluindo strings; não são doses interpoladas.
+model = DiscreteDML(random_state=42).fit(X, t, y)
 lift = model.predict_lift(X_new, treatment="oferta", reference="controle")
 mu_control = model.predict_response(X_new, treatment="controle")
 
-q = DiscreteQLearner(random_state=42).fit(X, a, y)
+q = DiscreteQLearner(random_state=42).fit(X, t, y)
 q_lift = q.predict_lift(X_new, treatment="oferta", reference="controle")
 ```
 
-O Q estima `q(a|x)=P(A=a|X=x,Y=1)` e `e(a|x)=P(A=a|X=x)`, e retorna `(q_a/e_a)/(q_ref/e_ref)`. É a identidade multiclasses do [artigo motivador](https://arxiv.org/html/2605.26288v1).
+O Q estima `q(t|x)=P(T=t|X=x,Y=1)` e `e(t|x)=P(T=t|X=x)`, e retorna `(q_t/e_t)/(q_ref/e_ref)`. É a identidade multiclasses do [artigo motivador](https://arxiv.org/html/2605.26288v1).
 
-O DML constrói, fora do fold, `Z_a = mu_a + 1(A=a)*(Y-mu_a)/e_a`, regressa cada `Z_a` em `X` e forma a razão das previsões. **Não divide pseudo-outcomes individuais nem os corta em zero.** A dupla robustez das médias exige propensão correta ou os respectivos outcomes corretos; a razão também exige regressões finais consistentes e denominador positivo. Não se fornece inferência pontual para a função condicional.
+O DML constrói, fora do fold, `Z_t = mu_t + 1(T=t)*(Y-mu_t)/e_t`, regressa cada `Z_t` em `X` e forma a razão das previsões. **Não divide pseudo-outcomes individuais nem os corta em zero.** A dupla robustez das médias exige propensão correta ou os respectivos outcomes corretos; a razão também exige regressões finais consistentes e denominador positivo. Não se fornece inferência pontual para a função condicional.
 
 Os argumentos `propensity_model`, `outcome_model`, `final_model` e `converter_model` permitem substituir os modelos relevantes em cada classe. Modelos probabilísticos devem manter probabilidades calibradas: balanceamento arbitrário de classes muda a identidade Q ou os pesos AIPW. `DiscreteDML` exige ao menos `n_splits` conversões e não conversões por braço. `DiscreteQLearner` exige conversores em todos os braços.
 
@@ -89,11 +89,11 @@ O estágio final padrão usa boosting mais conservador: 30 iterações, taxa de 
 ```python
 from relative_dml import ContinuousQLearner
 
-q = ContinuousQLearner(random_state=42).fit(X, a, y)
+q = ContinuousQLearner(random_state=42).fit(X, t, y)
 lift = q.predict_lift(X_new, treatment=0.5, reference=0)
 ```
 
-Treinamos um classificador de origem: classe 1 recebe `(X,A)` dos conversores; classe 0 recebe `(X,A)` da população completa. As duas origens têm o mesmo peso total. Pela identidade de Bayes, as odds da classificação são `mu(a,x)/P(Y=1)`, e a razão das odds em duas doses recupera o risk ratio. A referência conjunta preserva a alocação observada e o contraste mantém `X` fixo.
+Treinamos um classificador de origem: classe 1 recebe `(X,T)` dos conversores; classe 0 recebe `(X,T)` da população completa. As duas origens têm o mesmo peso total. Pela identidade de Bayes, as odds da classificação são `mu(t,x)/P(Y=1)`, e a razão das odds em duas doses recupera o risk ratio. A referência conjunta preserva a alocação observada e o contraste mantém `X` fixo.
 
 Conversores aparecem nas duas origens: essa duplicação não aumenta o número de observações independentes. Se fizer tuning, divida os **registros originais antes da duplicação**. O classificador customizado precisa aceitar `sample_weight`; o pacote clona o estimador antes de treinar. A identidade é não paramétrica, mas o desempenho depende da classe e regularização do classificador. Essa implementação não é o estimador de inclinação exponencial com densidade conhecida usado no primeiro Monte Carlo do paper.
 

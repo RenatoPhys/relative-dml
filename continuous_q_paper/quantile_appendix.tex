@@ -3,7 +3,7 @@
 \label{app:quantiles}
 
 \subsection{Antes de ordenar: duas perguntas diferentes}
-Imagine uma ação que pode aumentar a conversão. Para cada perfil de cliente, conhecemos a probabilidade de converter sem a ação, $\mu_0(x)=\mu(a_0,x)$, e com a ação, $\mu_1(x)=\mu(a,x)$. Aqui, ``com ação'' significa aplicar a mesma alternativa $a$ a todos; ``sem ação'' significa aplicar a mesma referência $a_0$. Os exemplos são inteiramente fictícios, com probabilidades conhecidas. Não há modelos ajustados, outcomes sorteados ou erro de estimação.
+Imagine uma ação que pode aumentar a conversão. Para cada perfil de cliente, conhecemos a probabilidade de converter sem a ação, $\mu_0(x)=\mu(t_0,x)$, e com a ação, $\mu_1(x)=\mu(t,x)$. Aqui, ``com ação'' significa aplicar a mesma alternativa $t$ a todos; ``sem ação'' significa aplicar a mesma referência $t_0$. Os exemplos são inteiramente fictícios, com probabilidades conhecidas. Não há modelos ajustados, outcomes sorteados ou erro de estimação.
 
 Dois scores respondem a perguntas úteis, mas diferentes:
 \begin{align*}
@@ -59,7 +59,7 @@ Ordenamos as mesmas 5\,000 pessoas de duas formas e criamos cinco grupos de 1\,0
 \clearpage
 \subsection{E um score de propensão à conversão que ignora a ação?}
 \label{app:conversion_score}
-Um classificador comum que recebe apenas $X$ tenta prever $S_{\mathrm{conv}}(x)=\Pr(Y=1\mid X=x)$: \emph{quem tende a converter na política observada?} Chamamos isso de \textbf{propensão à conversão}, diferente da propensão a receber tratamento $e(x)=\Pr(A=1\mid X=x)$. O score não recebe a ação como entrada, mas os outcomes usados para treiná-lo foram produzidos sob alguma política de ações.
+Um classificador comum que recebe apenas $X$ tenta prever $S_{\mathrm{conv}}(x)=\Pr(Y=1\mid X=x)$: \emph{quem tende a converter na política observada?} Chamamos isso de \textbf{propensão à conversão}, diferente da propensão a receber tratamento $e(x)=\Pr(T=1\mid X=x)$. O score não recebe a ação como entrada, mas os outcomes usados para treiná-lo foram produzidos sob alguma política de ações.
 
 Para tornar a comparação explícita, suponha tratamento binário aleatório com probabilidade de 50\% em todos os perfis. O score preditivo verdadeiro, sem erro de estimação, é
 \[
@@ -86,9 +86,9 @@ Ele mistura conversão-base e efeito; não é a própria conversão sem ação. 
 
 No Q5 de conversão, a ação produz 148,8 conversões esperadas por mil; 132 já seriam esperadas sem ela. O ganho incremental é 16,8, e não 148,8. Uma conversão final alta pode coexistir com lift baixo porque o denominador já é alto. Excluir a ação da entrada do classificador não torna o efeito causal nulo; apenas impede que sua previsão, isoladamente, forneça o contraste entre ações.
 
-\noindent\textbf{Política histórica e taxa contínua.} Sob identificação causal, o score integra a resposta na distribuição histórica de doses, de densidade $f(t\mid x)$:
+\noindent\textbf{Política histórica e taxa contínua.} Sob identificação causal, o score integra a resposta na distribuição histórica de doses, de densidade $f(u\mid x)$:
 \[
-S_{\mathrm{conv}}(x)=\int\mu(t,x)f(t\mid x)\,dt.
+S_{\mathrm{conv}}(x)=\int\mu(u,x)f(u\mid x)\,du.
 \]
 Para a curva contínua apresentada adiante e uma dose uniforme em $[0,1]$, independente de $X$, esse score é $\delta(x)/\log(1+\ell(x))$. Nas 25 células deste exemplo, a ordenação coincide com a mistura binária 50/50: mesmos quintis, CATEs e lifts, embora os scores médios mudem. O código verifica essa coincidência, que não vale em geral. Mudar a política histórica pode mudar o ranking preditivo mesmo mantendo a resposta causal de cada perfil.
 
@@ -129,17 +129,17 @@ os pesos são proporcionais às conversões-base esperadas. A média simples de 
 
 \clearpage
 \subsection{O mesmo raciocínio vale para tratamento contínuo}
-Em um tratamento discreto, podemos comparar braço 1 com braço 0. Em um tratamento contínuo, precisamos fixar duas doses e a direção da mudança: por exemplo, $a_0=0$ e $a=1$ em uma escala normalizada. Uma curva que reproduz exatamente as 25 combinações da Tabela~\ref{tab:quantile_profiles} é
+Em um tratamento discreto, podemos comparar braço 1 com braço 0. Em um tratamento contínuo, precisamos fixar duas doses e a direção da mudança: por exemplo, $t_0=0$ e $t=1$ em uma escala normalizada. Uma curva que reproduz exatamente as 25 combinações da Tabela~\ref{tab:quantile_profiles} é
 \[
 \mu(t,x)=b(x)\exp\{t\log(1+\ell(x))\},\qquad 0\leq t\leq1,
 \]
 com $b(x)=\delta(x)/\ell(x)$ e os níveis de CATE e lift daquela tabela. Em $t=0$, a conversão é $b(x)$; em $t=1$, é $b(x)(1+\ell(x))$. Todas as probabilidades permanecem entre zero e um. Para o contraste $0\to1$, os CATEs, lifts e rankings são os mesmos do exemplo discreto.
 
-Para outra mudança $a_0\to a$, o score relativo nessa curva passa a ser
+Para outra mudança $t_0\to t$, o score relativo nessa curva passa a ser
 \[
-\mathrm{lift}(a,a_0;x)=\exp\{(a-a_0)\log(1+\ell(x))\}-1,
+\mathrm{lift}(t,t_0;x)=\exp\{(t-t_0)\log(1+\ell(x))\}-1,
 \]
-e o score absoluto é $\mu(a_0,x)\times\mathrm{lift}(a,a_0;x)$. \textbf{A comparação precisa usar o mesmo contraste nos dois scores.} Uma derivada $s(t,x)=\partial_t\log\mu(t,x)$ mede variação log-relativa por unidade de dose; ela não é o lift de uma mudança finita. Nesta curva, $s=\log(1+\ell)$, e o lift requer aplicar a exponencial ao produto da inclinação pela mudança de dose. Se a curva tiver curvatura, usa-se a diferença de log-respostas entre as duas doses, ou a integral de $s$, e não apenas uma derivada local.
+e o score absoluto é $\mu(t_0,x)\times\mathrm{lift}(t,t_0;x)$. \textbf{A comparação precisa usar o mesmo contraste nos dois scores.} Uma derivada $s(t,x)=\partial_t\log\mu(t,x)$ mede variação log-relativa por unidade de dose; ela não é o lift de uma mudança finita. Nesta curva, $s=\log(1+\ell)$, e o lift requer aplicar a exponencial ao produto da inclinação pela mudança de dose. Se a curva tiver curvatura, usa-se a diferença de log-respostas entre as duas doses, ou a integral de $s$, e não apenas uma derivada local.
 
 \subsection{Como fazer a avaliação com scores aprendidos}
 Os exemplos anteriores ensinam a ler o alvo, não demonstram a qualidade preditiva de um estimador. Com dados observados, um protocolo simples é:

@@ -77,37 +77,37 @@ def generate(n: int, rng: np.random.Generator, theta: Array = TRUE_THETA):
     alpha = 0.9*x[:, 0] + 0.6*x[:, 1]
     u = rng.uniform(0, 1, n)
     # |alpha| >= 0.3 neste desenho. Fórmula inversa da CDF.
-    a = -1 + np.log1p(u*np.expm1(2*alpha))/alpha
+    t = -1 + np.log1p(u*np.expm1(2*alpha))/alpha
     b = SCALE*np.exp(1.1*x[:, 0] + 0.7*x[:, 1])
     v = np.column_stack([np.ones(n), x[:, 0]])
-    mu = b*np.exp(a*(v@theta))
+    mu = b*np.exp(t*(v@theta))
     if not np.all((mu > 0) & (mu < 1)):
         raise ValueError('DGP produziu probabilidades inválidas.')
     y = rng.binomial(1, mu).astype(float)
-    return x, a, y, b, alpha, mu
+    return x, t, y, b, alpha, mu
 
 
-def fit_q(a: Array, y: Array, v: Array, alpha_hat: Array) -> Estimate:
+def fit_q(t: Array, y: Array, v: Array, alpha_hat: Array) -> Estimate:
     """Q contínuo no submodelo de inclinação exponencial, sem augmentation."""
     keep = y == 1
-    ac, vc, z = a[keep], v[keep], alpha_hat[keep]
-    nc = len(ac)
+    tc, vc, z = t[keep], v[keep], alpha_hat[keep]
+    nc = len(tc)
     if nc < 20:
         raise ValueError('Número insuficiente de conversores.')
 
     def obj(theta):
         eta = vc@theta
-        return float(np.mean(log_mgf(z+eta)-ac*eta))
+        return float(np.mean(log_mgf(z+eta)-tc*eta))
 
     def grad(theta):
-        return np.mean(vc*(tilt_mean(z+vc@theta)-ac)[:, None], axis=0)
+        return np.mean(vc*(tilt_mean(z+vc@theta)-tc)[:, None], axis=0)
 
     sol = minimize(obj, np.zeros(v.shape[1]), jac=grad, method='BFGS',
                    options={'gtol': 1e-9, 'maxiter': 200})
     norm = float(np.linalg.norm(grad(sol.x)))
     if norm > 1e-6:
         raise RuntimeError(f'Q não convergiu: {sol.message}')
-    r = vc*(ac-tilt_mean(z+vc@sol.x))[:, None]
+    r = vc*(tc-tilt_mean(z+vc@sol.x))[:, None]
     hess = vc.T@(vc*tilt_variance(z+vc@sol.x)[:, None])/nc
     inv = np.linalg.inv(hess)
     cov = inv@(r.T@r/nc)@inv/nc
@@ -119,16 +119,16 @@ def run_mc(reps: int, n: int, out: Path):
     rng = np.random.default_rng(SEED)
     rows = []
     for rep in range(reps):
-        x, a, y, b, alpha, _ = generate(n, rng)
+        x, t, y, b, alpha, _ = generate(n, rng)
         v = np.column_stack([np.ones(n), x[:, 0]])
-        ma = tilt_mean(alpha)
-        modes = [('CQ-DML: b e m corretos', b, ma),
-                 ('CQ-DML: apenas m correto', np.full(n, 0.06), ma),
+        mt = tilt_mean(alpha)
+        modes = [('CQ-DML: b e m corretos', b, mt),
+                 ('CQ-DML: apenas m correto', np.full(n, 0.06), mt),
                  ('CQ-DML: apenas b correto', b, np.zeros(n)),
                  ('CQ-DML: ambos incorretos', np.full(n, 0.06), np.zeros(n))]
-        estimates = [(name, fit_multiplicative_dml(a,y,v,bh,mh)) for name,bh,mh in modes]
-        estimates += [('Q: densidade correta', fit_q(a,y,v,alpha)),
-                      ('Q: densidade incorreta', fit_q(a,y,v,np.zeros(n)))]
+        estimates = [(name, fit_multiplicative_dml(t,y,v,bh,mh)) for name,bh,mh in modes]
+        estimates += [('Q: densidade correta', fit_q(t,y,v,alpha)),
+                      ('Q: densidade incorreta', fit_q(t,y,v,np.zeros(n)))]
         for name, est in estimates:
             rows.append({'rep':rep, 'method':name, 'n':n, 'conversion':y.mean(),
                          **{f'theta{j}':est.theta[j] for j in range(2)},
@@ -156,21 +156,21 @@ def run_ml_demo(n: int, out: Path):
     from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
     from sklearn.model_selection import KFold
     rng=np.random.default_rng(SEED+1)
-    x,a,y,b,alpha,mu=generate(n,rng)
+    x,t,y,b,alpha,mu=generate(n,rng)
     nfolds=3
     bhat=np.zeros(n); mhat=np.zeros(n)
     for tr,te in KFold(nfolds,shuffle=True,random_state=SEED).split(x):
         reg=HistGradientBoostingRegressor(max_iter=100,max_leaf_nodes=12,
                                         min_samples_leaf=150,l2_regularization=2,
                                         random_state=SEED)
-        reg.fit(x[tr],a[tr]); mhat[te]=reg.predict(x[te])
+        reg.fit(x[tr],t[tr]); mhat[te]=reg.predict(x[te])
         clf=HistGradientBoostingClassifier(max_iter=150,max_leaf_nodes=12,
                                          min_samples_leaf=150,l2_regularization=2,
                                          random_state=SEED)
-        clf.fit(np.column_stack([x[tr],a[tr]]),y[tr])
+        clf.fit(np.column_stack([x[tr],t[tr]]),y[tr])
         bhat[te]=clf.predict_proba(np.column_stack([x[te],np.zeros(len(te))]))[:,1]
     v=np.column_stack([np.ones(n),x[:,0]])
-    est=fit_multiplicative_dml(a,y,v,bhat,mhat)
+    est=fit_multiplicative_dml(t,y,v,bhat,mhat)
     result={'n':n,'folds':nfolds,'seed':SEED+1,'conversion':float(y.mean()),
             'true_theta':TRUE_THETA.tolist(),'estimate':asdict(est),
             'b_rmse':float(np.sqrt(np.mean((bhat-b)**2))),
@@ -184,18 +184,18 @@ def run_ml_demo(n: int, out: Path):
 def analytic_checks(out: Path):
     from scipy.integrate import quad
     # DR de intervenções fixas: duas uniformes locais em [-1,1].
-    def f(a): return float(np.exp(0.8*a-log_mgf(np.array(0.8)))/2)
-    def fbad(a): return 0.5
-    def mu(a): return 0.06*np.exp(-0.4*a)
-    def mubad(a): return 0.09+0*a
+    def f(t): return float(np.exp(0.8*t-log_mgf(np.array(0.8)))/2)
+    def fbad(t): return 0.5
+    def mu(t): return 0.06*np.exp(-0.4*t)
+    def mubad(t): return 0.09+0*t
     kernels=[(-0.6,-0.2),(0.2,0.6)]
     checks=[]
     for j,(lo,hi) in enumerate(kernels):
-        true=quad(lambda a:mu(a)/(hi-lo),lo,hi,epsabs=1e-12)[0]
+        true=quad(lambda t:mu(t)/(hi-lo),lo,hi,epsabs=1e-12)[0]
         for label,fh,mh in [('ambos corretos',f,mu),('apenas f correto',f,mubad),
                             ('apenas mu correto',fbad,mu),('ambos incorretos',fbad,mubad)]:
-            expected=quad(lambda a:(mh(a)+f(a)/fh(a)*(mu(a)-mh(a)))/(hi-lo),lo,hi,epsabs=1e-12)[0]
-            rem=quad(lambda a:(f(a)/fh(a)-1)*(mu(a)-mh(a))/(hi-lo),lo,hi,epsabs=1e-12)[0]
+            expected=quad(lambda t:(mh(t)+f(t)/fh(t)*(mu(t)-mh(t)))/(hi-lo),lo,hi,epsabs=1e-12)[0]
+            rem=quad(lambda t:(f(t)/fh(t)-1)*(mu(t)-mh(t))/(hi-lo),lo,hi,epsabs=1e-12)[0]
             checks.append({'kernel':j,'case':label,'truth':true,'expected_signal':expected,
                            'bias':expected-true,'product_remainder':rem})
             assert abs(expected-true-rem)<1e-10
@@ -203,13 +203,13 @@ def analytic_checks(out: Path):
     pd.DataFrame(checks).to_csv(out/'stochastic_dr_checks.csv',index=False)
     # Q por densidade: identidade numérica, mesmo com baseline alto.
     for b in [0.02,0.06,0.25]:
-        alpha=0.8; theta=-0.4; aa=0.6; a0=-0.2
-        log_r_q=(alpha+theta)*(aa-a0)-alpha*(aa-a0)
-        assert abs(np.exp(log_r_q)-np.exp(theta*(aa-a0)))<1e-12
+        alpha=0.8; theta=-0.4; t=0.6; t0=-0.2
+        log_r_q=(alpha+theta)*(t-t0)-alpha*(t-t0)
+        assert abs(np.exp(log_r_q)-np.exp(theta*(t-t0)))<1e-12
     (out/'metadata.json').write_text(json.dumps({'seed':SEED,'scale':SCALE,
         'true_theta':TRUE_THETA.tolist(),'target_observed_conversion':0.06,
-        'design':'X1 uniforme em {-1,+1}; X2 uniforme [-1,1]; alpha=.9X1+.6X2; A em [-1,1]',
-        'baseline':'b=c exp(1.1 X1+0.7 X2); mu=b exp(A(theta0+theta1 X1))'},indent=2),encoding='utf-8')
+        'design':'X1 uniforme em {-1,+1}; X2 uniforme [-1,1]; alpha=.9X1+.6X2; T em [-1,1]',
+        'baseline':'b=c exp(1.1 X1+0.7 X2); mu=b exp(T(theta0+theta1 X1))'},indent=2),encoding='utf-8')
 
 
 def main():
