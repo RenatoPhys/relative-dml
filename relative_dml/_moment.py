@@ -14,6 +14,9 @@ class Estimate:
     se: list[float]
     moment_norm: float
     jac_condition: float
+    # Covariance of theta_hat, including 1/n; defaults preserve old callers.
+    cov: list[list[float]] | None = None
+    jac_singular_values: list[float] | None = None
 
 
 def fit_multiplicative_dml(t: Array, y: Array, v: Array,
@@ -66,5 +69,7 @@ def fit_multiplicative_dml(t: Array, y: Array, v: Array,
     omega = (psi.T@psi)/n
     invj = np.linalg.inv(j)
     cov = invj@omega@invj.T/n
+    cov = (cov + cov.T)/2
     se = np.sqrt(np.maximum(np.diag(cov), 0))
-    return Estimate(solution.x.tolist(), se.tolist(), norm, condition)
+    return Estimate(solution.x.tolist(), se.tolist(), norm, condition,
+                    cov.tolist(), np.linalg.svd(j, compute_uv=False).tolist())

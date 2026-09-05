@@ -117,6 +117,7 @@ class ContinuousDML(BaseEstimator):
             self.treatment_mean_oof_ - self.reference_dose)
         self.coef_ = np.asarray(self.estimate_.theta)
         self.se_ = np.asarray(self.estimate_.se)
+        self.cov_ = np.asarray(self.estimate_.cov)
         return self
 
     def predict_slope(self, X, effect_features=None):

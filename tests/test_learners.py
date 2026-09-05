@@ -1,5 +1,7 @@
 import numpy as np
 import pytest
+from dataclasses import asdict
+import json
 from numpy.testing import assert_allclose
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin, clone
 from sklearn.dummy import DummyClassifier, DummyRegressor
@@ -7,6 +9,7 @@ from sklearn.tree import DecisionTreeClassifier
 from relative_dml import (DiscreteQLearner, DiscreteDML, ContinuousQLearner,
                           ContinuousDML, fit_multiplicative_dml)
 from relative_dml.discrete import _aipw
+from relative_dml import Estimate
 
 
 def arm_table():
@@ -138,6 +141,8 @@ def test_continuous_heterogeneity_recovery_and_feature_contract():
     y = rng.binomial(1, .2*np.exp(t*(-.3-.25*X[:, 0])))
     model = ContinuousDML(treatment_model=DummyRegressor()).fit(X, t, y, X)
     assert_allclose(model.coef_, [-.3, -.25], atol=.12)
+    assert_allclose(model.se_**2, np.diag(model.cov_), atol=1e-14)
+    assert_allclose(model.cov_, model.estimate_.cov)
     with pytest.raises(ValueError, match='effect_features'):
         model.predict_slope(X[:4])
     with pytest.raises(ValueError):
@@ -177,3 +182,32 @@ def test_response_clipping_is_visible():
                         DummyRegressor(strategy='constant', constant=-.1)).fit(X, t, y)
     with pytest.warns(RuntimeWarning, match='clipped'):
         assert_allclose(model.predict_response(X[:2], 'control'), model.clip)
+
+
+def test_full_covariance_contrast_and_serialization():
+    # Exact binary cells with unequal profile sizes give nonzero covariance.
+    x = np.repeat([0., 0., 1., 1.], [1000, 1000, 2000, 2000])
+    t = np.repeat([0., 1., 0., 1.], [1000, 1000, 2000, 2000])
+    y = np.concatenate([np.r_[np.ones(k), np.zeros(n-k)]
+                        for n, k in [(1000, 100), (1000, 200),
+                                     (2000, 200), (2000, 600)]])
+    v = np.column_stack([np.ones(len(t)), x])
+    est = fit_multiplicative_dml(t, y, v, np.full(len(t), .1),
+                                np.full(len(t), .5))
+    cov = np.asarray(est.cov)
+    assert np.isfinite(cov).all()
+    assert_allclose(cov, cov.T, atol=1e-14)
+    assert np.linalg.eigvalsh(cov).min() >= -1e-14
+    assert_allclose(np.asarray(est.se)**2, np.diag(cov), atol=1e-14)
+    h, r = t[:, None]*v, (t-.5)[:, None]*v
+    wy = y*np.exp(-h@est.theta)
+    j = -(r.T@(h*wy[:, None]))/len(t)
+    influence = np.linalg.solve(j, (r*(wy-.1)[:, None]).T).T
+    a = np.array([1., .7])
+    expected_variance = np.mean((influence@a)**2)/len(t)
+    assert_allclose(a@cov@a, expected_variance, rtol=1e-12)
+    assert not np.isclose(a@cov@a, (a*a)@np.diag(cov))
+    assert_allclose(est.jac_singular_values, np.linalg.svd(j, compute_uv=False))
+    assert json.loads(json.dumps(asdict(est)))['cov'] == est.cov
+    legacy = Estimate([1.], [.1], 0., 1.)
+    assert asdict(legacy)['cov'] is None
