@@ -115,15 +115,24 @@ def predict_ratios(model, X, method):
             means = np.maximum(means, .001)
         # Keep invalid log-mean predictions visible even when ratios fail.
         with np.errstate(divide='ignore', over='ignore', invalid='ignore'):
-            ratios = means[1:]/means[0]
+            if method.startswith('Log-mean-'):
+                # Cancel the baseline in the linear predictor. Dividing means
+                # introduces X2-dependent rounding that breaks exact X1 ties.
+                at_reference = log_mean_design(X, 0., degree)
+                ratios = np.array([np.exp((log_mean_design(X, t, degree)
+                                           - at_reference) @ model.coef_)
+                                   for t in TARGETS])
+            else:
+                ratios = means[1:]/means[0]
     return ratios, diagnostics
 
 
 def score_ratios(scenario, ratios, X):
     if not np.isfinite(ratios).all() or np.any(ratios <= 0):
         raise FloatingPointError('Nonpositive or nonfinite ratio predictions.')
-    truths = np.array([response(scenario, X, t)/response(scenario, X, 0.)
-                       for t in TARGETS])
+    # Evaluate the known relative curve directly, preserving the two X1 ties.
+    truths = np.array([np.exp(t*(scenario.effect + scenario.heterogeneity*X[:, 0])
+                              + scenario.curvature*t*t) for t in TARGETS])
     ranking = np.nan
     # Spearman at +0.8, undefined for a constant true or predicted effect.
     if np.ptp(truths[-1]) > 1e-10 and np.ptp(ratios[-1]) > 1e-10:
@@ -379,6 +388,9 @@ def metadata(args):
                                        hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},
                 notes=[
                     'Same samples per method, independent test covariates, no truth-based tuning.',
+                    'Truth ratios use the causal log-relative curve directly; log-mean '
+                    'ratios cancel the baseline in the linear predictor to preserve exact '
+                    'X1 profile ties for Spearman. Conversion means still determine invalid fractions.',
                     'Convergence warnings count as failures; all failed rows and warnings remain.',
                     'Metric means/MCSE use successful runs; diagnostics use all available runs. '
                     'MCSE = replication SD / sqrt(number of available replications).',

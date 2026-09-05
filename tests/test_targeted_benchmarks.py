@@ -17,6 +17,8 @@ def test_log_mean_basis_and_unclipped_invalid_predictions():
                     [[-1., -.5, -.4, .4, .16], [1., .5, .8, .8, .64]])
 
     class FixedLogMean:
+        coef_ = np.array([0., 0., 1., 0.])
+
         def predict(self, design):
             return 2*np.exp(design[:, 2])
 
@@ -29,12 +31,35 @@ def test_log_mean_basis_and_unclipped_invalid_predictions():
 def test_constant_true_effect_has_no_spearman():
     scenario = replace(benchmark.SCENARIOS[0], heterogeneity=0.)
     X = np.array([[-1., -.5], [1., .5]])
-    truths = np.array([benchmark.response(scenario, X, t)/benchmark.response(scenario, X, 0.)
+    truths = np.array([np.full(len(X), np.exp(t*scenario.effect))
                        for t in benchmark.TARGETS])
     result = benchmark.score_ratios(scenario, truths, X)
     assert result['log_ratio_rmse'] == 0.
     assert result['lift_mae'] == 0.
     assert np.isnan(result['rank_spearman'])
+
+
+@pytest.mark.parametrize('heterogeneity_sign, expected_rank', [(1., 1.), (-1., -1.)])
+def test_curved_log_mean_preserves_exact_profile_ties(heterogeneity_sign, expected_rank):
+    scenario = benchmark.SCENARIOS[2]
+    X = np.array([[-1., -.77], [1., -.5], [-1., .01],
+                  [1., .37], [-1., .93], [1., .999]])
+
+    class CurvedLogMean:
+        coef_ = np.array([.65, .4, scenario.effect,
+                          heterogeneity_sign*scenario.heterogeneity, scenario.curvature])
+
+        def predict(self, design):
+            return scenario.baseline*np.exp(design @ self.coef_)
+
+    ratios, _ = benchmark.predict_ratios(CurvedLogMean(), X, 'Log-mean-quadratic')
+    for profile in (-1., 1.):
+        values = ratios[:, X[:, 0] == profile]
+        assert np.array_equal(values, np.repeat(values[:, :1], values.shape[1], axis=1))
+    result = benchmark.score_ratios(scenario, ratios, X)
+    assert result['rank_spearman'] == expected_rank
+    if heterogeneity_sign == 1.:
+        assert result['log_ratio_rmse'] < 1e-15
 
 
 def test_every_failed_method_is_retained(monkeypatch):
