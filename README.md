@@ -125,7 +125,17 @@ O apêndice didático do paper usa probabilidades sintéticas conhecidas para se
 
 As tabelas reportam conversão de referência, conversão sob tratamento, CATE em pontos percentuais, lift do grupo e conversões adicionais esperadas por mil oportunidades. O exemplo principal cruza cinco níveis de CATE com cinco níveis de lift, em 25 células de mesmo tamanho. **O CATE cresce de 0,4 a 2,0 p.p. entre seus quintis, mas o lift agregado permanece em 21,90% em todos.** Cada quintil contém a mesma distribuição de lifts individuais; o score relativo, por sua vez, separa lifts de 10% a 50%.
 
-![CATE crescente com lift horizontal; score relativo separando o lift](continuous_q_paper/figures/quantile_flat_lift.png)
+Um terceiro ranking usa a **propensão à conversão**, `P(Y=1 | X)`, sem ação/taxa como entrada. Ela é diferente da propensão a receber tratamento. Sob tratamento aleatório 50/50, esse score é `(mu0 + mu1)/2`, misturando baseline e efeito. Seus quintis têm CATE de 0,48; 1,12; 1,20; 1,52; 1,68 p.p., mas lifts de 35,64%; 42,21%; 30,00%; 24,52%; 12,73%: **o Q5 tem a maior conversão prevista e o menor lift**.
+
+![Comparação de CATE e lift nos quintis dos scores de CATE, lift e conversão](continuous_q_paper/figures/quantile_flat_lift.png)
+
+| Score usado para selecionar Q5 | Conversão-base | Conversão com ação | CATE | Lift do grupo |
+|---|---|---|---|---|
+| CATE | 9,13% | 11,13% | 2,00 p.p. | 21,90% |
+| Lift | 2,40% | 3,60% | 1,20 p.p. | 50,00% |
+| Conversão | 13,20% | 14,88% | 1,68 p.p. | 12,73% |
+
+CATE e lift são efeitos **nos grupos escolhidos pelo score**. O classificador de conversão, isoladamente, não estima a mudança causada pela ação. Para a curva contínua do exemplo com dose aleatória uniforme em `[0,1]`, a propensão à conversão é `delta/log1p(lift)` e produz os mesmos quintis nesta população; em geral, ela depende da política histórica de doses.
 
 Essa população foi construída para mostrar uma possibilidade, sem ruído de estimação: não implica independência geral entre CATE e lift nem superioridade de um algoritmo. Os complementos explicam empates com lift constante e por que a média individual de lift (30% nesse exemplo) difere do lift agregado. O exemplo anterior de rankings inversos continua disponível nos arquivos `quantile_profiles` e `quantile_rankings` e na figura `quantile_cate_vs_lift`; o novo exemplo usa o prefixo `quantile_flat`.
 

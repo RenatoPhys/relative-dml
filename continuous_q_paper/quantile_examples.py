@@ -1,4 +1,4 @@
-"""Exact synthetic examples: quintiles of absolute CATE versus relative lift."""
+"""Exact synthetic examples: quintiles of CATE, lift and conversion scores."""
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -40,6 +40,10 @@ def flat_lift_example(results, figures):
     cells['n'] = 200
     cells['mu0'] = cells.cate / cells.lift
     cells['mu1'] = cells.mu0 + cells.cate
+    # Oracle conversion prediction without A, under randomized 50/50 treatment.
+    cells['conversion'] = (cells.mu0 + cells.mu1) / 2
+    # Same response curve, with a randomized uniform dose on [0, 1].
+    cells['conversion_uniform'] = cells.cate / np.log1p(cells.lift)
     population = cells.loc[cells.index.repeat(cells.n)].reset_index(drop=True)
     assert len(population) == 5000
     assert np.all((population.mu0 > 0) & (population.mu1 < 1))
@@ -53,15 +57,29 @@ def flat_lift_example(results, figures):
                             'score_value': value, **group_metrics(group)})
             if score == 'cate':
                 assert group.groupby('lift').size().tolist() == [200] * 5
+    ordered = population.sort_values('conversion').reset_index(drop=True)
+    for quintile in range(1, 6):
+        group = ordered.iloc[(quintile-1)*1000:quintile*1000]
+        if quintile < 5:
+            assert group.conversion.max() < ordered.iloc[quintile*1000].conversion
+        assert group.groupby('conversion').size().tolist() == [200] * 5
+        records.append({'score': 'conversion', 'quintile': quintile,
+                        'score_value': group.conversion.mean(), **group_metrics(group)})
+    # Both observed policies give identical rankings here, not in general.
+    assert cells.sort_values('conversion').index.tolist() == cells.sort_values('conversion_uniform').index.tolist()
     quintiles = pd.DataFrame(records)
     by_cate = quintiles[quintiles.score == 'cate']
     by_lift = quintiles[quintiles.score == 'lift']
+    by_conversion = quintiles[quintiles.score == 'conversion']
     np.testing.assert_allclose(by_cate.lift, 30/137)
     np.testing.assert_allclose(by_cate.mean_individual_lift, .30)
     np.testing.assert_allclose(by_lift.cate, .012)
     np.testing.assert_allclose(by_lift.lift, [.10, .20, .30, .40, .50])
     assert np.ptp(by_cate.lift) < 1e-12
     assert np.ptp(by_lift.lift) > .39
+    np.testing.assert_allclose(by_conversion.cate, [.0048, .0112, .012, .0152, .0168])
+    np.testing.assert_allclose(by_conversion.lift, [36/101, 84/199, .30, 38/155, 7/55])
+    np.testing.assert_allclose(by_conversion.score_value, (by_conversion.mu0+by_conversion.mu1)/2)
     total = group_metrics(population)
     np.testing.assert_allclose([total['mu0'], total['mu1']], [.0548, .0668])
     for _, groups in quintiles.groupby('score'):
@@ -78,9 +96,25 @@ def flat_lift_example(results, figures):
     rows = [['CATE' if r.score == 'cate' else 'Lift', f'Q{r.quintile}',
              number(100*r.mu0), number(100*r.mu1), number(100*r.cate),
              number(100*r.lift), number(r.incremental_per_1000, 1)]
-            for r in quintiles.itertuples()]
+            for r in quintiles[quintiles.score != 'conversion'].itertuples()]
     write_table(results/'quantile_flat_rankings.tex', 'llrrrrr',
                 r'Score & Quantil & \shortstack{Base\\(\%)} & \shortstack{Com ação\\(\%)} & '
+                r'\shortstack{CATE\\(p.p.)} & \shortstack{Lift do grupo\\(\%)} & '
+                r'\shortstack{Extras por\\1\,000}', rows)
+
+    rows = [[f'Q{r.quintile}', number(100*r.score_value), number(100*r.mu0),
+             number(100*r.mu1), number(100*r.cate), number(100*r.lift)]
+            for r in by_conversion.itertuples()]
+    write_table(results/'quantile_conversion_rankings.tex', 'lrrrrr',
+                r'Quantil & \shortstack{Score médio\\(\%)} & \shortstack{Base\\(\%)} & '
+                r'\shortstack{Com ação\\(\%)} & \shortstack{CATE\\(p.p.)} & '
+                r'\shortstack{Lift do grupo\\(\%)}', rows)
+    names = {'cate': 'CATE', 'lift': 'Lift', 'conversion': 'Conversão'}
+    rows = [[names[r.score], number(100*r.mu0), number(100*r.mu1),
+             number(100*r.cate), number(100*r.lift), number(r.incremental_per_1000, 1)]
+            for r in quintiles[quintiles.quintile == 5].itertuples()]
+    write_table(results/'quantile_top_comparison.tex', 'lrrrrr',
+                r'Score & \shortstack{Base\\(\%)} & \shortstack{Com ação\\(\%)} & '
                 r'\shortstack{CATE\\(p.p.)} & \shortstack{Lift do grupo\\(\%)} & '
                 r'\shortstack{Extras por\\1\,000}', rows)
 
@@ -89,7 +123,8 @@ def flat_lift_example(results, figures):
             axes, ['cate', 'lift'], ['O CATE separa o ganho absoluto', 'O CATE não separa o lift'],
             ['CATE do grupo (p.p.)', 'Lift do grupo (%)'], [2.3, 57]):
         for score, color, marker, label in [('cate', '#2467a5', 'o', 'Ordenação por CATE'),
-                                           ('lift', '#c65d25', 's', 'Ordenação por lift')]:
+                                           ('lift', '#c65d25', 's', 'Ordenação por lift'),
+                                           ('conversion', '#29805c', '^', 'Ordenação por conversão')]:
             group = quintiles[quintiles.score == score]
             ax.plot(group.quintile, 100*group[metric], marker=marker,
                     color=color, linewidth=2, label=label)
@@ -103,12 +138,13 @@ def flat_lift_example(results, figures):
                      xytext=(1.15, 5), fontsize=9, color='#2467a5',
                      arrowprops={'arrowstyle': '->', 'color': '#2467a5'})
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower center', ncol=2, frameon=False)
+    fig.legend(handles, labels, loc='lower center', ncol=3, frameon=False, fontsize=9)
     fig.tight_layout(rect=[0, .10, 1, 1])
     fig.savefig(figures/'quantile_flat_lift.pdf', bbox_inches='tight')
     fig.savefig(figures/'quantile_flat_lift.png', dpi=170, bbox_inches='tight')
     plt.close(fig)
     print('Flat-lift example verified: CATE quintiles all 21.8978% group lift; lift quintiles 10-50%.')
+    print('Conversion score verified: Q5 CATE 1.68 pp and group lift 12.7273%; identical ranking for uniform dose.')
 
 
 def main():

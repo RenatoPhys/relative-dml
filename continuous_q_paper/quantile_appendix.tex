@@ -48,13 +48,49 @@ Ordenamos as mesmas 5\,000 pessoas de duas formas e criamos cinco grupos de 1\,0
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{figures/quantile_flat_lift.pdf}
-\caption{Azul: quintis pelo score de CATE. Laranja: quintis pelo score de lift. O CATE separa ganhos absolutos, mas sua curva de lift é horizontal. O score relativo separa lifts de 10\% a 50\%. Valores exatos da população construída, sem erro de aprendizagem.}
+\caption{Azul: score de CATE, com lift horizontal. Laranja: score de lift, que separa respostas de 10\% a 50\%. Verde: propensão à conversão sem tratamento como entrada, definida na próxima seção; seu Q5 tem o menor lift. Valores exatos, sem erro de aprendizagem.}
 \label{fig:quantile_rankings}
 \end{figure}
 
 \textbf{Não é só uma média horizontal.} Em cada quintil de CATE há 200 pessoas com lift de 10\%, 200 com 20\%, e assim por diante até 50\%. A distribuição inteira é idêntica: o CATE não separa o lift nem invertendo o ranking. A média individual é 30\% em todos esses quintis; o lift agregado do grupo é 21,90\%. A diferença entre esses dois resumos será explicada adiante.
 
 \textbf{O que muda ao selecionar Q5?} Por CATE, o ganho é 2 p.p., ou 20 conversões extras por mil, com lift agregado de 21,90\%. Por lift, o ganho é 1,2 p.p., ou 12 extras por mil, com lift de 50\%. As seleções compartilham 200 pessoas. Com custos e valores por conversão iguais, maximizar conversões incrementais e selecionar a maior resposta proporcional continuam sendo objetivos diferentes.
+
+\clearpage
+\subsection{E um score de propensão à conversão que ignora a ação?}
+\label{app:conversion_score}
+Um classificador comum que recebe apenas $X$ tenta prever $S_{\mathrm{conv}}(x)=\Pr(Y=1\mid X=x)$: \emph{quem tende a converter na política observada?} Chamamos isso de \textbf{propensão à conversão}, diferente da propensão a receber tratamento $e(x)=\Pr(A=1\mid X=x)$. O score não recebe a ação como entrada, mas os outcomes usados para treiná-lo foram produzidos sob alguma política de ações.
+
+Para tornar a comparação explícita, suponha tratamento binário aleatório com probabilidade de 50\% em todos os perfis. O score preditivo verdadeiro, sem erro de estimação, é
+\[
+S_{\mathrm{conv}}(x)=\tfrac12\mu_0(x)+\tfrac12\mu_1(x)
+=\mu_0(x)+\tfrac12\mathrm{CATE}(x).
+\]
+Ele mistura conversão-base e efeito; não é a própria conversão sem ação. Ordenamos as mesmas 5\,000 pessoas por esse terceiro score. Cada quintil reúne cinco células inteiras de 200 pessoas, sem dividir empates. \textbf{CATE e lift abaixo são efeitos nos grupos selecionados pelo score}, sempre para o contraste $0\to1$.
+
+\begin{table}[H]
+\centering\small
+\caption{Quintis pela propensão à conversão. O score médio é a conversão esperada na mistura 50/50; base e com ação são as duas médias contrafactuais.}
+\label{tab:quantile_conversion}
+\input{results/quantile_conversion_rankings.tex}
+\end{table}
+
+\textbf{O score sobe; o lift não acompanha.} De Q1 a Q5, a conversão prevista sobe de 1,59\% para 14,04\% e o CATE de 0,48 para 1,68 p.p. O lift não é monotônico: atinge 42,21\% em Q2 e cai até 12,73\% em Q5. Neste exemplo, o score preditivo também seleciona ganhos absolutos maiores, mas seu quintil superior tem a menor resposta proporcional. Isso é uma propriedade desta população, não uma regra para todo classificador.
+
+\begin{table}[H]
+\centering\small
+\caption{Se só pudermos selecionar 1\,000 pessoas: comparação dos três Q5.}
+\label{tab:quantile_top}
+\input{results/quantile_top_comparison.tex}
+\end{table}
+
+No Q5 de conversão, a ação produz 148,8 conversões esperadas por mil; 132 já seriam esperadas sem ela. O ganho incremental é 16,8, e não 148,8. Uma conversão final alta pode coexistir com lift baixo porque o denominador já é alto. Excluir a ação da entrada do classificador não torna o efeito causal nulo; apenas impede que sua previsão, isoladamente, forneça o contraste entre ações.
+
+\noindent\textbf{Política histórica e taxa contínua.} Sob identificação causal, o score integra a resposta na distribuição histórica de doses, de densidade $f(t\mid x)$:
+\[
+S_{\mathrm{conv}}(x)=\int\mu(t,x)f(t\mid x)\,dt.
+\]
+Para a curva contínua apresentada adiante e uma dose uniforme em $[0,1]$, independente de $X$, esse score é $\delta(x)/\log(1+\ell(x))$. Nas 25 células deste exemplo, a ordenação coincide com a mistura binária 50/50: mesmos quintis, CATEs e lifts, embora os scores médios mudem. O código verifica essa coincidência, que não vale em geral. Mudar a política histórica pode mudar o ranking preditivo mesmo mantendo a resposta causal de cada perfil.
 
 \clearpage
 \subsection{Quando o lift empata: o baseline pode ordenar o CATE}
@@ -108,11 +144,11 @@ e o score absoluto é $\mu(a_0,x)\times\mathrm{lift}(a,a_0;x)$. \textbf{A compar
 \subsection{Como fazer a avaliação com scores aprendidos}
 Os exemplos anteriores ensinam a ler o alvo, não demonstram a qualidade preditiva de um estimador. Com dados observados, um protocolo simples é:
 \begin{enumerate}
-\item \textbf{Definir a comparação antes de avaliar.} Fixar população, outcome, janela temporal, doses ou braços e escala do tratamento. Construir um score para CATE e outro para lift para esse mesmo contraste.
-\item \textbf{Separar treino de avaliação.} Treinar os modelos em uma amostra e congelar suas previsões antes de usar os outcomes de teste. Formar os quintis a partir dessas previsões, sem consultar os outcomes. Registrar os cortes e o tratamento dos empates; para comparação, usar a mesma população de teste nos dois rankings.
+\item \textbf{Definir a comparação antes de avaliar.} Fixar população, outcome, janela temporal, doses ou braços e escala do tratamento. Construir scores de CATE e lift para esse contraste; acrescentar um classificador de conversão usando apenas $X$ e registrar a política histórica de ações.
+\item \textbf{Separar treino de avaliação.} Treinar os modelos em uma amostra e congelar suas previsões antes de usar os outcomes de teste. Formar os quintis a partir dessas previsões, sem consultar os outcomes. Registrar os cortes e o tratamento dos empates; usar a mesma população de teste nos três rankings.
 \item \textbf{Estimar as duas conversões em cada grupo.} Em um experimento binário com probabilidades de alocação constantes, médias por braço são uma referência; com alocação variável, usar os pesos do desenho. Em dados observacionais discretos, usar médias ajustadas, por exemplo sinais AIPW com nuisances fora da amostra e overlap adequado. Para dose contínua, usar o estimador de dose-resposta ou de intervenção estocástica apropriado: não basta aplicar a fórmula AIPW binária a doses exatas.
 \item \textbf{Mostrar as duas escalas e sua incerteza.} A partir das médias estimadas, calcular diferença em p.p. e razão menos um. Reportar tamanho do grupo, conversão-base, suporte e intervalos compatíveis com o desenho. Uma curva monotônica de previsões por construção não valida o efeito; a evidência vem da avaliação independente dos grupos.
 \end{enumerate}
 Comparar apenas a conversão observada de Q5 com a de Q1 mistura baseline, composição dos grupos e alocação de tratamento. Isso não identifica CATE nem lift causal. Em dados sintéticos podemos calcular as duas médias contrafactuais exatas; em dados reais é necessário estimá-las sob as hipóteses de identificação.
 
-\noindent\textbf{Reprodução.} Executar \texttt{quantile\_examples.py} recria as tabelas, CSVs e o gráfico. O script verifica as identidades de agregação, a distribuição idêntica de lift nos quintis de CATE, a separação de 10\% a 50\% pelo score relativo, o empate de lift constante e o contraexemplo da média dos lifts. O exemplo anterior de rankings inversos permanece reproduzível nos arquivos originais do gerador.
+\noindent\textbf{Reprodução.} Executar \texttt{quantile\_examples.py} recria as tabelas, CSVs e o gráfico. O script verifica as identidades de agregação, a distribuição idêntica de lift nos quintis de CATE, a separação pelo score relativo, os resultados do score de conversão nas duas políticas, os empates e o contraexemplo da média dos lifts. O exemplo anterior de rankings inversos permanece reproduzível nos arquivos originais do gerador.

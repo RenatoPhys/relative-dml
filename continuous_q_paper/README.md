@@ -19,7 +19,7 @@ Manuscrito metodológico em português, preparado em 5 de setembro de 2026.
 - `make_scenario_figures.py`: geração das novas tabelas e figura diretamente dos CSVs.
 - `results/scenario_*.csv`, `results/scenario_metadata.json`: avaliação principal, com 30 replicações por cenário e três métodos.
 - `results/pilot/`: rodada inicial preservada; motivou regularização do estágio final do DML discreto.
-- `quantile_appendix.tex`: apêndice didático comparando rankings por CATE absoluto e lift relativo.
+- `quantile_appendix.tex`: apêndice didático comparando rankings por CATE absoluto, lift relativo e propensão à conversão sem ação como entrada.
 - `quantile_examples.py`: reprodução determinística dos exemplos e verificações numéricas.
 - `results/quantile_*` e `figures/quantile_*`: tabelas e gráficos com probabilidades sintéticas conhecidas.
 
