@@ -1,0 +1,127 @@
+{
+  "seed": 20260906,
+  "reps": 30,
+  "n": 12000,
+  "test_n": 2000,
+  "folds": 3,
+  "scenarios": [
+    {
+      "name": "continuous_null",
+      "label": "Contínuo: efeito nulo",
+      "kind": "continuous",
+      "baseline": 0.04,
+      "effect": 0,
+      "heterogeneity": 0,
+      "confounding": 1.0,
+      "curvature": 0.0,
+      "arms": 2
+    },
+    {
+      "name": "continuous_common",
+      "label": "Contínuo: efeito comum",
+      "kind": "continuous",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": 0,
+      "confounding": 1.0,
+      "curvature": 0.0,
+      "arms": 2
+    },
+    {
+      "name": "continuous_heterogeneous",
+      "label": "Contínuo: heterogêneo",
+      "kind": "continuous",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 1.0,
+      "curvature": 0.0,
+      "arms": 2
+    },
+    {
+      "name": "continuous_rare",
+      "label": "Contínuo: conversão rara",
+      "kind": "continuous",
+      "baseline": 0.008,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 1.0,
+      "curvature": 0.0,
+      "arms": 2
+    },
+    {
+      "name": "continuous_weak",
+      "label": "Contínuo: pouco overlap",
+      "kind": "continuous",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 4.0,
+      "curvature": 0.0,
+      "arms": 2
+    },
+    {
+      "name": "continuous_curved",
+      "label": "Contínuo: curva omitida",
+      "kind": "continuous",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 1.0,
+      "curvature": 0.8,
+      "arms": 2
+    },
+    {
+      "name": "binary_rct",
+      "label": "Binário: aleatorizado",
+      "kind": "discrete",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 0,
+      "curvature": 0.0,
+      "arms": 2
+    },
+    {
+      "name": "binary_confounded",
+      "label": "Binário: confundido",
+      "kind": "discrete",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 1.0,
+      "curvature": 0.0,
+      "arms": 2
+    },
+    {
+      "name": "three_arm",
+      "label": "Discreto: três braços",
+      "kind": "discrete",
+      "baseline": 0.04,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 1.0,
+      "curvature": 0.0,
+      "arms": 3
+    },
+    {
+      "name": "binary_rare",
+      "label": "Binário: conversão rara",
+      "kind": "discrete",
+      "baseline": 0.008,
+      "effect": -0.35,
+      "heterogeneity": -0.2,
+      "confounding": 1.0,
+      "curvature": 0.0,
+      "arms": 2
+    }
+  ],
+  "versions": {
+    "python": "3.9.13",
+    "numpy": "1.26.4",
+    "scipy": "1.11.4",
+    "sklearn": "1.5.1",
+    "pandas": "2.2.2"
+  },
+  "note": "Independent test sets. Metrics conditional on successful fits; failures and warnings retained."
+}

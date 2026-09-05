@@ -1,0 +1,25 @@
+{
+  "n": 100000,
+  "folds": 3,
+  "seed": 20260906,
+  "conversion": 0.06137,
+  "true_theta": [
+    -0.35,
+    -0.2
+  ],
+  "estimate": {
+    "theta": [
+      -0.34215963296551133,
+      -0.19383990704928958
+    ],
+    "se": [
+      0.03523546786918228,
+      0.035235467869182274
+    ],
+    "moment_norm": 3.52160908756456e-18,
+    "jac_condition": 7.605253753309644
+  },
+  "b_rmse": 0.010082200500316068,
+  "m_rmse": 0.01773931140133346,
+  "note": "Uma realização ilustrativa com nuisances estimadas por boosting; não é benchmark."
+}
