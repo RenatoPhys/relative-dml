@@ -16,47 +16,49 @@ S_{\mathrm{lift}}(x)&=\frac{\mu_1(x)}{\mu_0(x)}-1
 
 \noindent\textbf{Unidades, sem ambiguidade.} Passar de 2\% para 3,6\% significa ganhar \emph{1,6 ponto percentual}, ou 0,016 na escala de probabilidade. O lift é $3{,}6/2-1=80\%$. Em 1\,000 pessoas iguais a esse perfil, isso corresponde a passar de 20 para 36 conversões esperadas: \emph{16 conversões adicionais}. São expectativas contrafactuais, não a identificação de quais 16 pessoas mudariam de decisão.
 
+\textbf{Exemplo principal: o CATE não separa o lift.} Uma ordenação inversa ainda separa perfeitamente os lifts; queremos algo diferente. Cruzamos cinco ganhos absolutos $\delta\in\{0{,}004;0{,}008;0{,}012;0{,}016;0{,}020\}$ com cinco lifts $\ell\in\{10\%,20\%,30\%,40\%,50\%\}$. Há 200 pessoas em cada uma das 25 combinações, totalizando 5\,000. Definimos
+\[
+\mu_0=\frac{\delta}{\ell},\qquad \mu_1=\mu_0+\delta.
+\]
+Assim, o CATE é exatamente $\delta$ e o lift é exatamente $\ell$. A tabela mostra as conversões-base necessárias para esse cruzamento. As probabilidades são válidas: $\mu_0$ varia de 0,8\% a 20\%, e $\mu_1$ de 1,2\% a 22\%.
+
 \begin{table}[H]
 \centering\small
-\caption{Cinco perfis fictícios, cada um com 20\% da população. O contraste de tratamento é o mesmo em todas as linhas.}
+\caption{Conversão-base (\%) em cada combinação. Cada célula representa 200 pessoas. O CATE é constante na linha; o lift, na coluna.}
 \label{tab:quantile_profiles}
-\input{results/quantile_profiles.tex}
+\input{results/quantile_flat_cells.tex}
 \end{table}
 
-\textbf{A e E deixam a diferença clara.} O perfil A ganha 80\% sobre uma base de 2\%: seu CATE é 1,6 p.p. O perfil E ganha 15\% sobre uma base de 25\%: seu CATE é 3,75 p.p. Portanto, A tem o maior lift e E tem o maior ganho absoluto. Isso decorre da identidade
-\[
-\underbrace{\mathrm{CATE}(x)}_{\text{ganho absoluto}}
-=\underbrace{\mu_0(x)}_{\text{conversão-base}}
-\times\underbrace{\mathrm{lift}(x)}_{\text{ganho relativo}}.
-\]
-Um método DML pode aprender um alvo aditivo ou relativo, dependendo da equação usada. ``DML'' descreve a construção de estimação e não determina a unidade do score. No pacote deste projeto, os Q-Learners e os DMLs entregam respostas relativas; o CATE aditivo exige também uma estimativa de $\mu_0(x)$, multiplicada pelo lift.
+Cada nível de CATE reúne \emph{os mesmos cinco lifts, nas mesmas proporções}. Existe heterogeneidade relativa de verdade, mas ela não está associada ao CATE nesta população. A construção é deliberadamente balanceada para tornar essa possibilidade visível; não afirma independência entre os alvos em toda aplicação nem vantagem empírica de um algoritmo.
+
+Um método DML pode aprender um alvo aditivo ou relativo, dependendo da equação usada. ``DML'' não determina a unidade do score. No pacote, os Q-Learners e os DMLs entregam respostas relativas; para obter CATE, também é necessário o baseline: $\mathrm{CATE}(x)=\mu_0(x)\,\mathrm{lift}(x)$.
 
 \clearpage
-\subsection{Os mesmos clientes, duas ordenações e cinco grupos}
-Ordenamos as 5\,000 pessoas do menor para o maior score e formamos cinco grupos de 1\,000: \textbf{Q1 tem os menores scores e Q5 os maiores}. Cada perfil tem um score distinto e ocupa exatamente um quintil; nenhum empate é dividido. Na tabela, ``extras'' significa $1\,000\times\mathrm{CATE}$, e lift do grupo significa razão das suas médias de conversão, menos um.
+\subsection{CATE crescente, lift horizontal: os quintis deixam isso patente}
+Ordenamos as mesmas 5\,000 pessoas de duas formas e criamos cinco grupos de 1\,000: \textbf{Q1 tem os menores scores e Q5 os maiores}. Cada nível de score ocupa exatamente um quintil, sem dividir empates. No ranking de CATE, um quintil corresponde a uma linha da tabela anterior; no ranking de lift, a uma coluna.
 
 \begin{table}[H]
 \centering\small
 \setlength{\tabcolsep}{5pt}
-\caption{O que se encontra em cada quintil. A população é a mesma; apenas a ordenação muda.}
+\caption{Mesma população e mesmo contraste de tratamento. Lift do grupo é a razão das médias de conversão, menos um; ``extras'' são conversões adicionais esperadas.}
 \label{tab:quantile_rankings}
-\input{results/quantile_rankings.tex}
+\input{results/quantile_flat_rankings.tex}
 \end{table}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{figures/quantile_cate_vs_lift.pdf}
-\caption{Azul: grupos formados pelo score de CATE. Laranja: grupos formados pelo score de lift. Cada painel avalia ambos os rankings na mesma unidade. Q5 reúne pessoas diferentes nas duas curvas. Valores exatos da população sintética, sem incerteza amostral.}
+\includegraphics[width=\linewidth]{figures/quantile_flat_lift.pdf}
+\caption{Azul: quintis pelo score de CATE. Laranja: quintis pelo score de lift. O CATE separa ganhos absolutos, mas sua curva de lift é horizontal. O score relativo separa lifts de 10\% a 50\%. Valores exatos da população construída, sem erro de aprendizagem.}
 \label{fig:quantile_rankings}
 \end{figure}
 
-\textbf{Como ler o gráfico.} O ranking azul cresce no painel de CATE, mas cai no de lift. O laranja faz o inverso. Um score pode ordenar perfeitamente o seu alvo e ter uma curva decrescente na outra escala. Isso não é falha de calibração: os alvos são diferentes.
+\textbf{Não é só uma média horizontal.} Em cada quintil de CATE há 200 pessoas com lift de 10\%, 200 com 20\%, e assim por diante até 50\%. A distribuição inteira é idêntica: o CATE não separa o lift nem invertendo o ranking. A média individual é 30\% em todos esses quintis; o lift agregado do grupo é 21,90\%. A diferença entre esses dois resumos será explicada adiante.
 
-\textbf{Se só houver capacidade para 1\,000 pessoas:} selecionar Q5 por CATE escolhe E e gera 37,5 conversões adicionais esperadas; selecionar Q5 por lift escolhe A e gera 16. Com custo e valor por conversão iguais, o primeiro maximiza conversões incrementais neste exemplo. O segundo seleciona a maior resposta proporcional. Lift alto, isoladamente, não significa maior lucro ou maior número de conversões extras.
+\textbf{O que muda ao selecionar Q5?} Por CATE, o ganho é 2 p.p., ou 20 conversões extras por mil, com lift agregado de 21,90\%. Por lift, o ganho é 1,2 p.p., ou 12 extras por mil, com lift de 50\%. As seleções compartilham 200 pessoas. Com custos e valores por conversão iguais, maximizar conversões incrementais e selecionar a maior resposta proporcional continuam sendo objetivos diferentes.
 
 \clearpage
 \subsection{Quando o lift empata: o baseline pode ordenar o CATE}
-Agora mantenha as mesmas conversões-base e imponha um lift de 20\% para todos. A conversão aumenta proporcionalmente da mesma forma em todos os perfis, enquanto o ganho em pontos percentuais aumenta com o baseline.
+Como caso complementar, use conversões-base de 2\%, 4\%, 8\%, 16\% e 25\% e imponha um lift de 20\% para todos. A conversão aumenta proporcionalmente da mesma forma em todos os perfis, enquanto o ganho em pontos percentuais aumenta com o baseline.
 
 \begin{table}[H]
 \centering\small
@@ -87,15 +89,15 @@ A média dos lifts é $(100\%+10\%)/2=55\%$. Porém, a conversão média passa d
 \mathrm{lift}_G
 =\frac{\E[\mu_0(X)\,\mathrm{lift}(X)\mid G]}{\E[\mu_0(X)\mid G]}:
 \]
-os pesos são proporcionais às conversões-base esperadas. A média simples de 55\% é outro resumo legítimo, desde que seja rotulada como \emph{média dos lifts individuais}. No exemplo principal, cada quintil contém um único perfil, então os dois resumos coincidem dentro do quintil. Na população inteira, o CATE é 2,59 p.p. e o lift do grupo é 23,55\%, independentemente do ranking escolhido.
+os pesos são proporcionais às conversões-base esperadas. A média simples de 55\% é outro resumo legítimo, desde que seja rotulada como \emph{média dos lifts individuais}. No exemplo principal, cada quintil de CATE mistura cinco perfis com os mesmos lifts individuais: a média simples é 30\%, mas o lift agregado é $1/\{(10+5+10/3+2{,}5+2)/5\}=21{,}90\%$. Na população inteira, a conversão-base é 5,48\%, a conversão com ação é 6,68\% e o CATE é 1,2 p.p., independentemente do ranking escolhido.
 
 \clearpage
 \subsection{O mesmo raciocínio vale para tratamento contínuo}
-Em um tratamento discreto, podemos comparar braço 1 com braço 0. Em um tratamento contínuo, precisamos fixar duas doses e a direção da mudança: por exemplo, $a_0=0$ e $a=1$ em uma escala normalizada. Uma curva que reproduz exatamente os cinco perfis da Tabela~\ref{tab:quantile_profiles} é
+Em um tratamento discreto, podemos comparar braço 1 com braço 0. Em um tratamento contínuo, precisamos fixar duas doses e a direção da mudança: por exemplo, $a_0=0$ e $a=1$ em uma escala normalizada. Uma curva que reproduz exatamente as 25 combinações da Tabela~\ref{tab:quantile_profiles} é
 \[
 \mu(t,x)=b(x)\exp\{t\log(1+\ell(x))\},\qquad 0\leq t\leq1,
 \]
-com $b(x)$ igual ao baseline e $\ell(x)$ igual ao lift daquela tabela. Em $t=0$, a conversão é $b(x)$; em $t=1$, é $b(x)(1+\ell(x))$. Todas as probabilidades permanecem entre zero e um. Para o contraste $0\to1$, os CATEs, lifts e rankings são os mesmos do exemplo discreto.
+com $b(x)=\delta(x)/\ell(x)$ e os níveis de CATE e lift daquela tabela. Em $t=0$, a conversão é $b(x)$; em $t=1$, é $b(x)(1+\ell(x))$. Todas as probabilidades permanecem entre zero e um. Para o contraste $0\to1$, os CATEs, lifts e rankings são os mesmos do exemplo discreto.
 
 Para outra mudança $a_0\to a$, o score relativo nessa curva passa a ser
 \[
@@ -113,4 +115,4 @@ Os exemplos anteriores ensinam a ler o alvo, não demonstram a qualidade prediti
 \end{enumerate}
 Comparar apenas a conversão observada de Q5 com a de Q1 mistura baseline, composição dos grupos e alocação de tratamento. Isso não identifica CATE nem lift causal. Em dados sintéticos podemos calcular as duas médias contrafactuais exatas; em dados reais é necessário estimá-las sob as hipóteses de identificação.
 
-\noindent\textbf{Reprodução.} Executar \texttt{quantile\_examples.py} recria as tabelas, CSVs e o gráfico. O script verifica as identidades de agregação, a inversão do perfil selecionado em Q5, o empate de lift constante e o contraexemplo da média dos lifts.
+\noindent\textbf{Reprodução.} Executar \texttt{quantile\_examples.py} recria as tabelas, CSVs e o gráfico. O script verifica as identidades de agregação, a distribuição idêntica de lift nos quintis de CATE, a separação de 10\% a 50\% pelo score relativo, o empate de lift constante e o contraexemplo da média dos lifts. O exemplo anterior de rankings inversos permanece reproduzível nos arquivos originais do gerador.

@@ -28,6 +28,89 @@ def group_metrics(frame):
             'incremental_per_1000': 1000 * (treated - baseline)}
 
 
+def flat_lift_example(results, figures):
+    """Cross absolute effects and relative lifts independently, with equal cells.
+
+    The entire lift distribution is identical in all CATE quintiles; this
+    purpose-built population isolates estimands, not estimation performance.
+    """
+    cells = pd.MultiIndex.from_product(
+        [[.004, .008, .012, .016, .020], [.10, .20, .30, .40, .50]],
+        names=['cate', 'lift']).to_frame(index=False)
+    cells['n'] = 200
+    cells['mu0'] = cells.cate / cells.lift
+    cells['mu1'] = cells.mu0 + cells.cate
+    population = cells.loc[cells.index.repeat(cells.n)].reset_index(drop=True)
+    assert len(population) == 5000
+    assert np.all((population.mu0 > 0) & (population.mu1 < 1))
+    np.testing.assert_allclose(population.mu1/population.mu0 - 1, population.lift)
+    records = []
+    for score in ['cate', 'lift']:
+        for quintile, (value, group) in enumerate(population.groupby(score, sort=True), 1):
+            # Five equally frequent score levels; never split ties across bins.
+            assert len(group) == 1000
+            records.append({'score': score, 'quintile': quintile,
+                            'score_value': value, **group_metrics(group)})
+            if score == 'cate':
+                assert group.groupby('lift').size().tolist() == [200] * 5
+    quintiles = pd.DataFrame(records)
+    by_cate = quintiles[quintiles.score == 'cate']
+    by_lift = quintiles[quintiles.score == 'lift']
+    np.testing.assert_allclose(by_cate.lift, 30/137)
+    np.testing.assert_allclose(by_cate.mean_individual_lift, .30)
+    np.testing.assert_allclose(by_lift.cate, .012)
+    np.testing.assert_allclose(by_lift.lift, [.10, .20, .30, .40, .50])
+    assert np.ptp(by_cate.lift) < 1e-12
+    assert np.ptp(by_lift.lift) > .39
+    total = group_metrics(population)
+    np.testing.assert_allclose([total['mu0'], total['mu1']], [.0548, .0668])
+    for _, groups in quintiles.groupby('score'):
+        np.testing.assert_allclose(np.average(groups.cate, weights=groups.n), total['cate'])
+        np.testing.assert_allclose(np.average(groups.lift, weights=groups.n*groups.mu0), total['lift'])
+    cells.to_csv(results/'quantile_flat_cells.csv', index=False)
+    quintiles.to_csv(results/'quantile_flat_rankings.csv', index=False)
+    pd.DataFrame([total]).to_csv(results/'quantile_flat_population.csv', index=False)
+
+    rows = [[number(100*delta)] + [number(100*delta/lift) for lift in [.1, .2, .3, .4, .5]]
+            for delta in [.004, .008, .012, .016, .020]]
+    write_table(results/'quantile_flat_cells.tex', 'rrrrrr',
+                r'CATE (p.p.) & Lift 10\% & Lift 20\% & Lift 30\% & Lift 40\% & Lift 50\%', rows)
+    rows = [['CATE' if r.score == 'cate' else 'Lift', f'Q{r.quintile}',
+             number(100*r.mu0), number(100*r.mu1), number(100*r.cate),
+             number(100*r.lift), number(r.incremental_per_1000, 1)]
+            for r in quintiles.itertuples()]
+    write_table(results/'quantile_flat_rankings.tex', 'llrrrrr',
+                r'Score & Quantil & \shortstack{Base\\(\%)} & \shortstack{Com ação\\(\%)} & '
+                r'\shortstack{CATE\\(p.p.)} & \shortstack{Lift do grupo\\(\%)} & '
+                r'\shortstack{Extras por\\1\,000}', rows)
+
+    fig, axes = plt.subplots(1, 2, figsize=(9.1, 3.4))
+    for ax, metric, title, ylabel, upper in zip(
+            axes, ['cate', 'lift'], ['O CATE separa o ganho absoluto', 'O CATE não separa o lift'],
+            ['CATE do grupo (p.p.)', 'Lift do grupo (%)'], [2.3, 57]):
+        for score, color, marker, label in [('cate', '#2467a5', 'o', 'Ordenação por CATE'),
+                                           ('lift', '#c65d25', 's', 'Ordenação por lift')]:
+            group = quintiles[quintiles.score == score]
+            ax.plot(group.quintile, 100*group[metric], marker=marker,
+                    color=color, linewidth=2, label=label)
+        ax.set_xticks(range(1, 6), [f'Q{k}' for k in range(1, 6)])
+        ax.set_xlabel('Do menor para o maior score')
+        ax.set_ylabel(ylabel)
+        ax.set_title(title, fontsize=11)
+        ax.set_ylim(0, upper)
+        ax.grid(axis='y', alpha=.2)
+    axes[1].annotate('21,90% em todos os quintis de CATE', xy=(3, 100*30/137),
+                     xytext=(1.15, 5), fontsize=9, color='#2467a5',
+                     arrowprops={'arrowstyle': '->', 'color': '#2467a5'})
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower center', ncol=2, frameon=False)
+    fig.tight_layout(rect=[0, .10, 1, 1])
+    fig.savefig(figures/'quantile_flat_lift.pdf', bbox_inches='tight')
+    fig.savefig(figures/'quantile_flat_lift.png', dpi=170, bbox_inches='tight')
+    plt.close(fig)
+    print('Flat-lift example verified: CATE quintiles all 21.8978% group lift; lift quintiles 10-50%.')
+
+
 def main():
     folder = Path(__file__).resolve().parent
     results, figures = folder / 'results', folder / 'figures'
@@ -150,6 +233,7 @@ def main():
     print('Exact examples verified: 5,000 people; opposite top quintiles E vs A.')
     print(f'Population CATE: {100*total["cate"]:.2f} pp; group lift: {100*total["lift"]:.2f}%.')
     print('Mixture: mean individual lift 55%; group lift 18.18%.')
+    flat_lift_example(results, figures)
     print('Tables, CSVs and figure saved to continuous_q_paper/results and figures.')
 
 

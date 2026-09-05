@@ -123,9 +123,11 @@ Os experimentos originais continuam em `continuous_q_paper/experiments.py`; a fu
 
 O apêndice didático do paper usa probabilidades sintéticas conhecidas para separar duas perguntas: **quem gera mais conversões adicionais?** (score de CATE absoluto) e **quem apresenta maior aumento proporcional?** (score de lift). A mesma população é ordenada das duas formas e dividida em cinco grupos iguais, de Q1 (menor score) a Q5 (maior score).
 
-As tabelas reportam conversão de referência, conversão sob tratamento, CATE em pontos percentuais, lift do grupo e conversões adicionais esperadas por mil oportunidades. O exemplo principal mostra rankings opostos; os complementos explicam empates com lift constante e por que a média dos lifts individuais difere do lift agregado. São exemplos de alvos conhecidos, sem ruído de estimação e sem resultados de clientes reais.
+As tabelas reportam conversão de referência, conversão sob tratamento, CATE em pontos percentuais, lift do grupo e conversões adicionais esperadas por mil oportunidades. O exemplo principal cruza cinco níveis de CATE com cinco níveis de lift, em 25 células de mesmo tamanho. **O CATE cresce de 0,4 a 2,0 p.p. entre seus quintis, mas o lift agregado permanece em 21,90% em todos.** Cada quintil contém a mesma distribuição de lifts individuais; o score relativo, por sua vez, separa lifts de 10% a 50%.
 
-![CATE e lift nos quintis formados pelos dois scores](continuous_q_paper/figures/quantile_cate_vs_lift.png)
+![CATE crescente com lift horizontal; score relativo separando o lift](continuous_q_paper/figures/quantile_flat_lift.png)
+
+Essa população foi construída para mostrar uma possibilidade, sem ruído de estimação: não implica independência geral entre CATE e lift nem superioridade de um algoritmo. Os complementos explicam empates com lift constante e por que a média individual de lift (30% nesse exemplo) difere do lift agregado. O exemplo anterior de rankings inversos continua disponível nos arquivos `quantile_profiles` e `quantile_rankings` e na figura `quantile_cate_vs_lift`; o novo exemplo usa o prefixo `quantile_flat`.
 
 ```powershell
 python continuous_q_paper/quantile_examples.py
